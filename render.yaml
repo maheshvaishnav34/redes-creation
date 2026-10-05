@@ -1,0 +1,63 @@
+# Render.com Deployment Configuration
+# https://render.com/docs/yaml-spec
+
+services:
+  # ─── Backend API (Node.js/Express) ───────────────────────────────
+  - type: web
+    name: redes-creation-api
+    env: node
+    region: singapore       # Closest to India
+    plan: free              # Change to 'starter' ($7/mo) for no spin-down
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DB_HOST
+        fromDatabase:
+          name: redes-creation-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: redes-creation-db
+          property: port
+      - key: DB_USER
+        fromDatabase:
+          name: redes-creation-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: redes-creation-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: redes-creation-db
+          property: database
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        value: https://redes-creation-app.onrender.com  # Update after deploy
+
+  # ─── Frontend (React/Vite) ────────────────────────────────────────
+  - type: web
+    name: redes-creation-app
+    env: node
+    region: singapore
+    plan: free
+    rootDir: client
+    buildCommand: npm install && npm run build
+    startCommand: npx serve -s dist -l 3000
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+# ─── PostgreSQL Database ──────────────────────────────────────────────
+databases:
+  - name: redes-creation-db
+    plan: free
+    databaseName: redes_creation
+    region: singapore

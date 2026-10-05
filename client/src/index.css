@@ -1,0 +1,250 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-scheme: light;
+    --background: 248 250 252;
+    --card: 255 255 255;
+    --card-foreground: 15 23 42;
+    --border: 226 232 240;
+    --primary: 3 75 192;
+  }
+
+  .dark {
+    --color-scheme: dark;
+    --background: 10 15 29;
+    --card: 17 24 39;
+    --card-foreground: 243 244 246;
+    --border: 31 41 55;
+    --primary: 3 75 192;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    color-scheme: light;
+    background-color: #f8fafc;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', 'Inter', sans-serif;
+  }
+}
+
+/* Redes Creation Clean Corporate Light Mode Overrides */
+html:not(.dark) {
+  /* Surfaces - Clean White Cards on Soft Slate */
+  .bg-slate-900,
+  .bg-slate-900\/90,
+  .bg-slate-900\/80,
+  .bg-slate-900\/70,
+  .bg-slate-900\/60 {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    color: #0f172a !important;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+  }
+
+  .bg-slate-950,
+  .bg-slate-950\/90,
+  .bg-slate-950\/80 {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+  }
+
+  .bg-slate-800,
+  .bg-slate-800\/90,
+  .bg-slate-800\/80,
+  .bg-slate-800\/70,
+  .bg-slate-800\/60,
+  .bg-slate-800\/50 {
+    background-color: #f1f5f9 !important;
+    border-color: #e2e8f0 !important;
+    color: #1e293b !important;
+  }
+
+  /* Borders */
+  .border-slate-800,
+  .border-slate-800\/80,
+  .border-slate-800\/60,
+  .border-slate-700,
+  .border-slate-700\/60,
+  .border-slate-700\/50 {
+    border-color: #e2e8f0 !important;
+  }
+
+  /* CRITICAL: High-Contrast Text Colors - Fix washed out / faint text */
+  .text-slate-100,
+  .text-slate-200 {
+    color: #0f172a !important; /* Deep dark slate for maximum legibility */
+  }
+
+  .text-slate-300 {
+    color: #1e293b !important; /* Strong dark slate */
+  }
+
+  .text-slate-400 {
+    color: #475569 !important; /* Clear medium slate for secondary text */
+  }
+
+  .text-slate-500 {
+    color: #64748b !important;
+  }
+
+  .text-white:not(button):not(a.bg-indigo-600):not(a.bg-blue-600):not([class*="bg-indigo"]):not([class*="bg-[#034bc0]"]):not([class*="bg-blue"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not(.text-badge-white) {
+    color: #0f172a !important;
+  }
+
+  /* Status Badges & Pills - High Contrast in Light Mode */
+  .text-rose-300,
+  .text-rose-400 {
+    color: #991b1b !important; /* Dark crimson for clear readability */
+    font-weight: 700 !important;
+  }
+  .bg-rose-500\/10,
+  .bg-rose-500\/15,
+  .bg-rose-500\/20,
+  .bg-rose-950\/40 {
+    background-color: #fee2e2 !important;
+    border-color: #fca5a5 !important;
+    color: #991b1b !important;
+  }
+
+  .text-emerald-300,
+  .text-emerald-400 {
+    color: #065f46 !important; /* Rich forest green for clear readability */
+    font-weight: 700 !important;
+  }
+  .bg-emerald-500\/10,
+  .bg-emerald-500\/15,
+  .bg-emerald-500\/20 {
+    background-color: #d1fae5 !important;
+    border-color: #6ee7b7 !important;
+    color: #065f46 !important;
+  }
+
+  .text-amber-300,
+  .text-amber-400 {
+    color: #92400e !important; /* Rich warm amber for clear readability */
+    font-weight: 700 !important;
+  }
+  .bg-amber-500\/10,
+  .bg-amber-500\/15,
+  .bg-amber-500\/20 {
+    background-color: #fef3c7 !important;
+    border-color: #fcd34d !important;
+    color: #92400e !important;
+  }
+
+  .text-indigo-300 {
+    color: #034bc0 !important;
+    font-weight: 700 !important;
+  }
+
+  /* Tag pills (like Food Quality, Service & Staff) */
+  .text-slate-400 svg {
+    color: #034bc0 !important;
+  }
+
+  /* Brand Accents - Redes Creation Royal Blue */
+  .bg-indigo-600 {
+    background-color: #034bc0 !important;
+  }
+  .hover\:bg-indigo-700:hover,
+  .hover\:bg-indigo-500:hover {
+    background-color: #023aa0 !important;
+  }
+  .text-indigo-400,
+  .text-indigo-600 {
+    color: #034bc0 !important;
+  }
+  .border-indigo-500,
+  .border-indigo-600 {
+    border-color: #034bc0 !important;
+  }
+  .bg-indigo-500\/10,
+  .bg-indigo-500\/20,
+  .bg-indigo-600\/20 {
+    background-color: rgba(3, 75, 192, 0.08) !important;
+    color: #034bc0 !important;
+  }
+
+  /* Form Inputs */
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    background-color: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: #64748b !important;
+  }
+
+  /* Buttons that must keep white text */
+  button.bg-indigo-600,
+  button.bg-blue-600,
+  button[class*="bg-[#034bc0]"],
+  button.bg-emerald-600,
+  button.bg-rose-600,
+  a.bg-indigo-600,
+  a.bg-blue-600,
+  a[class*="bg-[#034bc0]"],
+  .btn-primary {
+    color: #ffffff !important;
+  }
+
+  button.bg-indigo-600 *,
+  button.bg-blue-600 *,
+  button[class*="bg-[#034bc0]"] *,
+  a.bg-indigo-600 *,
+  a[class*="bg-[#034bc0]"] * {
+    color: #ffffff !important;
+  }
+}
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+}
+
+/* Glassmorphism */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.dark .glass-panel {
+  background: rgba(17, 24, 39, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Heatmap Grid Cell Animation */
+@keyframes pulse-subtle {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+.cell-hover:hover {
+  animation: pulse-subtle 0.2s ease-in-out forwards;
+}

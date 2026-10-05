@@ -1,0 +1,29 @@
+## Ignore sensitive files
+.env
+.env.local
+.env.production
+
+## Dependency directories
+node_modules/
+client/node_modules/
+server/node_modules/
+
+## Build output
+client/dist/
+server/dist/
+
+## Logs
+*.log
+npm-debug.log*
+
+## OS
+.DS_Store
+Thumbs.db
+
+## IDE
+.vscode/
+.idea/
+
+## Test artifacts
+coverage/
+*.test.js.snap
