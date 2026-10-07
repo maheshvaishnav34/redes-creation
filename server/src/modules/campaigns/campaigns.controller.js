@@ -624,7 +624,16 @@ export const submitCustomerFeedback = async (req, res, next) => {
 
 export const autoPostReviewToGoogle = async (req, res, next) => {
   try {
-    const { campaignId, customerName, rating = 5, reviewText, selectedDraft, destination = 'google' } = req.body;
+    const { 
+      campaignId, 
+      customerName, 
+      rating = 5, 
+      reviewText, 
+      selectedDraft, 
+      destination = 'google',
+      serviceExperienced = 'General Service',
+      themesSelected = []
+    } = req.body;
 
     const campRes = await query(
       `SELECT c.business_id, c.id, c.google_review_url, gl.gbp_place_id 
@@ -690,13 +699,15 @@ export const autoPostReviewToGoogle = async (req, res, next) => {
       try {
         await query(
           `INSERT INTO review_feedback (
-             campaign_id, business_id, customer_name, rating, feedback_text, proceeded_to_google, created_at
-           ) VALUES ($1, $2, $3, $4, $5, TRUE, NOW())`,
+             campaign_id, business_id, customer_name, rating, service_experienced, themes_selected, feedback_text, proceeded_to_google, created_at
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, NOW())`,
           [
             actualCampId,
             businessId,
             customerName || 'Verified Customer',
             Number(rating) || 5,
+            serviceExperienced,
+            JSON.stringify(themesSelected || []),
             finalReviewText
           ]
         );
@@ -717,7 +728,14 @@ export const autoPostReviewToGoogle = async (req, res, next) => {
         await query(
           `INSERT INTO campaign_events (campaign_id, business_id, event_type, metadata)
            VALUES ($1, $2, 'REVIEW_DESTINATION_CLICKED', $3)`,
-          [actualCampId, businessId, JSON.stringify({ rating: Number(rating) || 5, destination: 'google_reviews', autoPosted: true, reviewId: newReviewId })]
+          [actualCampId, businessId, JSON.stringify({ 
+            rating: Number(rating) || 5, 
+            serviceExperienced, 
+            themesSelected,
+            destination: 'google_reviews', 
+            autoPosted: true, 
+            reviewId: newReviewId 
+          })]
         );
       }
     }
