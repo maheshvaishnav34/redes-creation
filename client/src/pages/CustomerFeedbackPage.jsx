@@ -4,13 +4,13 @@ import {
   Star,
   CheckCircle2,
   ExternalLink,
-  Copy,
   ShieldCheck,
   ThumbsUp,
   Globe,
   Sparkles,
   MapPin,
-  Tag
+  Tag,
+  RotateCw
 } from 'lucide-react';
 import { api } from '../services/api.js';
 
@@ -27,8 +27,9 @@ export const CustomerFeedbackPage = () => {
   const [customerName, setCustomerName] = useState('');
   const [reviewText, setReviewText] = useState('');
   const [selectedChips, setSelectedChips] = useState([]);
-  const [activeDraftIndex, setActiveDraftIndex] = useState(0);
-  const [customEdited, setCustomEdited] = useState(false);
+  const [aiVariationSeed, setAiVariationSeed] = useState(0);
+  const [hasGeneratedAi, setHasGeneratedAi] = useState(false);
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [copied, setCopied] = useState(false);
   const [posting, setPosting] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -113,7 +114,7 @@ export const CustomerFeedbackPage = () => {
     }
   }, [campaignServices, selectedService]);
 
-  // Quick chips for 1-tap addition (Section 5.1 Experience Themes)
+  // Quick chips for 1-tap addition (Experience Themes)
   const quickChips = useMemo(() => {
     if (isTrainingOrTech) {
       return ['Practical Training', 'Expert Faculty', 'Live Project Work', 'Doubt Clearing', 'Placement Support'];
@@ -127,70 +128,130 @@ export const CustomerFeedbackPage = () => {
     return ['Quality Service', 'Clear Communication', 'Professional Team', 'Timely Delivery', 'Fair Pricing'];
   }, [isTrainingOrTech, isHospitality, isDental]);
 
-  // AI Review Writing Assistant: 3 Natural Draft Options (Section 5.1)
-  const draftOptions = useMemo(() => {
-    const sName = selectedService || 'services';
+  // Dynamic Natural AI Generator Function (Produces varied, human-like reviews on each call)
+  const generateFreshAiReview = (currentRating, service, chips, seed) => {
+    const sName = service || 'service';
     const bName = businessName;
-    const themesStr = selectedChips.length > 0 ? selectedChips.join(', ') : '';
+    const themesStr = chips.length > 0 ? chips.join(', ') : '';
 
-    if (rating >= 4) {
-      // 1. Concise
-      const draft1 = selectedChips.length > 0
-        ? `Exceptional experience with ${bName} for ${sName}! Really impressed with their ${themesStr.toLowerCase()}. Highly recommended!`
-        : `Outstanding experience with ${bName} for ${sName}! Prompt, professional, and reliable service. Highly recommended!`;
-
-      // 2. Detailed & Professional
-      const draft2 = selectedChips.length > 0
-        ? `I recently used ${sName} at ${bName} and was thoroughly satisfied. The team maintained high standards of professionalism and communication. Special mention for their ${themesStr.toLowerCase()}, which made a noticeable difference. 5 stars well deserved!`
-        : `I recently engaged ${bName} for ${sName} and had a seamless experience from start to finish. The quality of work and attentive service exceeded my expectations. Gladly recommending them to friends and colleagues!`;
-
-      // 3. Warm & Personal
-      const draft3 = selectedChips.length > 0
-        ? `Super happy with the support from ${bName}! Everything regarding ${sName} was handled with great care. Loved their ${themesStr.toLowerCase()}. Will definitely choose them again!`
-        : `Really great experience dealing with the team at ${bName}! Smooth process for ${sName} and very polite staff. Keep up the wonderful work!`;
-
-      return [
-        { id: 0, label: 'Concise', icon: '⚡', text: draft1 },
-        { id: 1, label: 'Detailed', icon: '📝', text: draft2 },
-        { id: 2, label: 'Personal', icon: '🌟', text: draft3 }
+    if (currentRating >= 4) {
+      const highOpeners = [
+        `Outstanding experience with ${bName} for ${sName}!`,
+        `Honestly one of the best experiences I have had with ${bName}!`,
+        `Recently availed ${sName} from ${bName} and was truly impressed.`,
+        `Extremely satisfied with the service provided by ${bName} for ${sName}.`,
+        `Cannot recommend ${bName} enough for ${sName}!`,
+        `Had a wonderful experience with the team at ${bName}!`,
+        `Top-notch quality and great support from ${bName} for ${sName}.`,
+        `Really happy that I chose ${bName} for ${sName}.`
       ];
+
+      const highBodiesWithThemes = [
+        `The team's dedication to ${themesStr.toLowerCase()} was evident throughout the entire process. Everything was handled seamlessly.`,
+        `What really stood out to me was their focus on ${themesStr.toLowerCase()}. The staff is very courteous, responsive, and skilled.`,
+        `Their attention to detail and ${themesStr.toLowerCase()} made a significant difference. Clear communication and great outcomes.`,
+        `Prompt coordination and high-standard ${themesStr.toLowerCase()}. They deliver exactly what they promise without any hassle.`,
+        `From start to finish, their ${themesStr.toLowerCase()} was impeccable. It is rare to find this level of consistency and care.`
+      ];
+
+      const highBodiesWithoutThemes = [
+        `Prompt communication, dependable execution, and very courteous staff. They made the entire process completely hassle-free.`,
+        `The professionalism, punctuality, and quality of work exceeded all expectations. A truly reliable team.`,
+        `Very smooth coordination from start to finish. Transparent, efficient, and thoroughly customer-focused.`,
+        `Great value for money and dependable support. Everything was executed with utmost precision.`
+      ];
+
+      const highClosers = [
+        `5 stars well deserved!`,
+        `Highly recommended to anyone looking for quality and reliability!`,
+        `Will definitely come back and recommend to friends and family.`,
+        `Keep up the fantastic work! A solid 10/10 from me.`,
+        `Gladly giving 5 stars for their exceptional service.`,
+        `Looking forward to continuing with them in the future!`
+      ];
+
+      const opIdx = (seed * 3) % highOpeners.length;
+      const bdIdx = chips.length > 0 
+        ? (seed * 2 + 1) % highBodiesWithThemes.length 
+        : (seed * 2 + 1) % highBodiesWithoutThemes.length;
+      const clIdx = (seed * 5 + 2) % highClosers.length;
+
+      const opener = highOpeners[opIdx];
+      const body = chips.length > 0 ? highBodiesWithThemes[bdIdx] : highBodiesWithoutThemes[bdIdx];
+      const closer = highClosers[clIdx];
+
+      return `${opener} ${body} ${closer}`;
     } else {
-      // Constructive private feedback for management
-      const draft1 = selectedChips.length > 0
-        ? `Providing direct feedback regarding ${sName} at ${bName}. Areas such as ${themesStr.toLowerCase()} need attention.`
-        : `Sharing constructive feedback regarding my recent experience with ${sName} at ${bName}. Looking forward to improvements.`;
-
-      const draft2 = selectedChips.length > 0
-        ? `I wanted to share private feedback regarding ${sName}. While I appreciate the effort, the experience regarding ${themesStr.toLowerCase()} did not meet expectations. Hoping management can look into this.`
-        : `Direct feedback for management regarding ${sName}: the experience was below expectations. Please review and address this with the team.`;
-
-      const draft3 = selectedChips.length > 0
-        ? `Constructive note for ${bName}: our experience with ${sName} had some friction, particularly around ${themesStr.toLowerCase()}. Appreciate if someone can reach out.`
-        : `Sharing private feedback on ${sName}. There is scope for improvement in service delivery.`;
-
-      return [
-        { id: 0, label: 'Concise', icon: '⚡', text: draft1 },
-        { id: 1, label: 'Detailed', icon: '📝', text: draft2 },
-        { id: 2, label: 'Constructive', icon: '🤝', text: draft3 }
+      // Constructive private feedback for management (1-3 stars)
+      const lowOpeners = [
+        `Sharing constructive feedback regarding my recent experience with ${sName} at ${bName}.`,
+        `Providing direct feedback for management regarding ${sName}.`,
+        `Wanted to highlight a few areas for improvement concerning ${sName} at ${bName}.`,
+        `Writing to share our experience with ${sName}.`
       ];
-    }
-  }, [rating, selectedService, selectedChips, businessName]);
 
-  // Keep active text in sync with draft options unless user explicitly typed custom edits
+      const lowBodies = chips.length > 0
+        ? [
+            `While certain aspects were noted, specific points regarding ${themesStr.toLowerCase()} did not meet expectations.`,
+            `We encountered issues particularly around ${themesStr.toLowerCase()}, which caused inconvenience.`,
+            `There is noticeable room for improvement in ${themesStr.toLowerCase()} and overall execution.`
+          ]
+        : [
+            `The service quality and execution were below what was expected.`,
+            `There were communication delays and difficulties during the process.`,
+            `The experience felt rushed and did not meet standard expectations.`
+          ];
+
+      const lowClosers = [
+        `Hoping management takes this feedback positively to address these gaps.`,
+        `Appreciate if the team looks into this to improve customer satisfaction.`,
+        `Sharing this directly so necessary adjustments can be made.`
+      ];
+
+      const opIdx = seed % lowOpeners.length;
+      const bdIdx = seed % lowBodies.length;
+      const clIdx = seed % lowClosers.length;
+
+      return `${lowOpeners[opIdx]} ${lowBodies[bdIdx]} ${lowClosers[clIdx]}`;
+    }
+  };
+
+  // Initialize review text on first load or when key inputs change initially
   useEffect(() => {
-    if (!customEdited) {
-      const activeText = draftOptions[activeDraftIndex]?.text || draftOptions[0]?.text || '';
-      setReviewText(activeText);
-      syncDraftToExtension(activeText, rating);
+    if (!hasGeneratedAi && reviewText === '') {
+      const initialText = generateFreshAiReview(rating, selectedService, selectedChips, 0);
+      setReviewText(initialText);
+      syncDraftToExtension(initialText, rating);
     }
-  }, [draftOptions, activeDraftIndex, customEdited, rating]);
+  }, [rating, selectedService, selectedChips, hasGeneratedAi]);
 
-  // Toggle quick chip
+  // Handler: Generate fresh AI Review on demand
+  const handleGenerateAiReview = () => {
+    setIsGeneratingAi(true);
+    const nextSeed = aiVariationSeed + 1;
+    setAiVariationSeed(nextSeed);
+    setHasGeneratedAi(true);
+
+    setTimeout(() => {
+      const freshText = generateFreshAiReview(rating, selectedService, selectedChips, nextSeed);
+      setReviewText(freshText);
+      syncDraftToExtension(freshText, rating);
+      setIsGeneratingAi(false);
+    }, 220);
+  };
+
+  // Toggle quick highlight chip
   const toggleChip = (chip) => {
     const isSelected = selectedChips.includes(chip);
     const newChips = isSelected ? selectedChips.filter(c => c !== chip) : [...selectedChips, chip];
     setSelectedChips(newChips);
-    setCustomEdited(false);
+
+    // Update review text with new theme context
+    const nextSeed = aiVariationSeed + 1;
+    setAiVariationSeed(nextSeed);
+    const updated = generateFreshAiReview(rating, selectedService, newChips, nextSeed);
+    setReviewText(updated);
+    syncDraftToExtension(updated, rating);
   };
 
   const getGoogleReviewUrl = () => {
@@ -249,16 +310,18 @@ export const CustomerFeedbackPage = () => {
 
   const handleRatingSelect = (star) => {
     setRating(star);
-    setCustomEdited(false);
-    const activeText = draftOptions[activeDraftIndex]?.text || '';
-    syncDraftToExtension(activeText, star);
+    const nextSeed = aiVariationSeed + 1;
+    setAiVariationSeed(nextSeed);
+    const freshText = generateFreshAiReview(star, selectedService, selectedChips, nextSeed);
+    setReviewText(freshText);
+    syncDraftToExtension(freshText, star);
   };
 
   const handlePostReview = async (e) => {
     if (e) e.preventDefault();
     setPosting(true);
 
-    const activeText = reviewText.trim() || draftOptions[activeDraftIndex]?.text || 'Outstanding experience!';
+    const activeText = reviewText.trim() || 'Outstanding experience!';
 
     await copyToClipboard(activeText);
     syncDraftToExtension(activeText, rating);
@@ -362,7 +425,7 @@ export const CustomerFeedbackPage = () => {
           </div>
         </div>
 
-        {/* 1-Step Compact Review Form */}
+        {/* Form Container */}
         <div className="space-y-4">
           
           {/* Star Rating Section */}
@@ -402,7 +465,7 @@ export const CustomerFeedbackPage = () => {
             </div>
           </div>
 
-          {/* Section 5: Service / Product Used Selector */}
+          {/* Service / Product Used Selector */}
           {campaignServices.length > 0 && (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
@@ -412,14 +475,18 @@ export const CustomerFeedbackPage = () => {
                 </span>
                 <span className="text-[10px] text-slate-400 font-normal">Tap to customize</span>
               </div>
-              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
                 {campaignServices.map((svc) => (
                   <button
                     key={svc}
                     type="button"
                     onClick={() => {
                       setSelectedService(svc);
-                      setCustomEdited(false);
+                      const nextSeed = aiVariationSeed + 1;
+                      setAiVariationSeed(nextSeed);
+                      const fresh = generateFreshAiReview(rating, svc, selectedChips, nextSeed);
+                      setReviewText(fresh);
+                      syncDraftToExtension(fresh, rating);
                     }}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
                       selectedService === svc
@@ -434,7 +501,7 @@ export const CustomerFeedbackPage = () => {
             </div>
           )}
 
-          {/* Section 5.1: What stood out? Experience Themes */}
+          {/* What stood out? Experience Themes */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
               <span>What stood out? (Tap 1 or more)</span>
@@ -460,71 +527,52 @@ export const CustomerFeedbackPage = () => {
             </div>
           </div>
 
-          {/* Section 5.1: AI Review Writing Assistant with 3 Natural Draft Options */}
-          <div className="space-y-1.5">
+          {/* Simple Clean AI Review Box + 1-Click Refresh */}
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-[#034bc0]" />
-                <span>AI Writing Assistant:</span>
+                <span>Your Review:</span>
               </label>
-              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-50 text-[#034bc0] border border-blue-100">
-                3 Natural Options
+
+              {/* 1-Click AI Generation Button */}
+              <button
+                type="button"
+                onClick={handleGenerateAiReview}
+                disabled={isGeneratingAi}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-sm hover:shadow transition cursor-pointer active:scale-95 disabled:opacity-60"
+              >
+                <RotateCw className={`w-3.5 h-3.5 ${isGeneratingAi ? 'animate-spin' : ''}`} />
+                <span>{isGeneratingAi ? 'Writing...' : (hasGeneratedAi ? 'Try Another AI Review' : 'Write with AI')}</span>
+              </button>
+            </div>
+
+            <textarea
+              rows={4}
+              value={reviewText}
+              onChange={(e) => {
+                setReviewText(e.target.value);
+                syncDraftToExtension(e.target.value);
+              }}
+              className="w-full p-3.5 bg-white border border-slate-300 rounded-2xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-[#034bc0] focus:ring-2 focus:ring-[#034bc0]/20 font-medium leading-relaxed shadow-xs"
+              placeholder="Your review text appears here (feel free to edit or write your own words)..."
+            />
+
+            <div className="flex items-center justify-between text-[11px] text-slate-400 px-0.5">
+              <span className="flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
+                <span>AI-generated • Click "Try Another" anytime for a new variation</span>
               </span>
-            </div>
-
-            {/* 3 Natural Draft Tabs */}
-            <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl">
-              {draftOptions.map((opt, idx) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveDraftIndex(idx);
-                    setReviewText(opt.text);
-                    setCustomEdited(false);
-                    syncDraftToExtension(opt.text);
-                  }}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1 ${
-                    activeDraftIndex === idx
-                      ? 'bg-white text-[#034bc0] shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <span>{opt.icon}</span>
-                  <span>{opt.label}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-[11px] pt-1">
-                <span className="text-slate-500 font-medium">Review Text:</span>
-                {customEdited && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReviewText(draftOptions[activeDraftIndex]?.text || '');
-                      setCustomEdited(false);
-                      syncDraftToExtension(draftOptions[activeDraftIndex]?.text || '');
-                    }}
-                    className="text-[#034bc0] font-bold hover:underline cursor-pointer"
-                  >
-                    Reset to {draftOptions[activeDraftIndex]?.label} Draft
-                  </button>
-                )}
-              </div>
-
-              <textarea
-                rows={3}
-                value={reviewText}
-                onChange={(e) => {
-                  setReviewText(e.target.value);
-                  setCustomEdited(true);
-                  syncDraftToExtension(e.target.value);
+              <button
+                type="button"
+                onClick={() => {
+                  setReviewText('');
+                  syncDraftToExtension('');
                 }}
-                className="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-[#034bc0] focus:ring-2 focus:ring-[#034bc0]/20 font-medium leading-relaxed shadow-inner"
-                placeholder="Write your review here..."
-              />
+                className="text-slate-400 hover:text-slate-600 hover:underline cursor-pointer"
+              >
+                Clear
+              </button>
             </div>
           </div>
 
