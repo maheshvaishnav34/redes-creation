@@ -259,7 +259,7 @@ async function seed() {
         location_name, address, primary_category, secondary_categories,
         phone, website, is_verified, sync_status, last_synced_at
       ) VALUES (
-        $1, $2, 'locations/11827491028374910283', 'ChIJr2oQ32_9XzkRLw5P7A8V-uU',
+        $1, $2, 'locations/11827491028374910283', NULL,
         'Saffron Fine Dine & Banquets - SG Highway', 'Plot 42, SG Highway, Bodakdev, Ahmedabad',
         'North Indian Restaurant',
         '["Fine Dining Restaurant", "Banquet Hall", "Family Restaurant", "Buffet Restaurant"]'::jsonb,

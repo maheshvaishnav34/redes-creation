@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   Building2,
   Plus,
-  QrCode
+  QrCode,
+  Lightbulb
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -178,87 +179,227 @@ export const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Primary KPI Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1: Rating */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+      {/* Primary KPI Metric Cards (6-Card Executive Layout) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        {/* Metric 1: Local SEO Score */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Google Rating</span>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500 border border-amber-200">
-              <Star className="w-4 h-4 fill-amber-500" />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Local SEO Score</span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-200">
+              <ShieldCheck className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl lg:text-3xl font-extrabold text-slate-900">
-              {stats.avgRating || '4.8'}
+          <div className="mt-2.5 flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+              {stats.localSeoScore || 82}
             </span>
-            <span className="text-xs text-slate-400 font-medium">/ 5.0</span>
+            <span className="text-xs text-slate-400 font-medium">/ 100</span>
+          </div>
+          <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-600 font-bold">
+            <TrendingUp className="w-3 h-3" />
+            <span>Optimal Level</span>
+          </div>
+        </div>
+
+        {/* Metric 2: Google Rating */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Google Rating</span>
+            <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500 border border-amber-200">
+              <Star className="w-3.5 h-3.5 fill-amber-500" />
+            </div>
+          </div>
+          <div className="mt-2.5 flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+              {stats.avgRating || '4.6'}
+            </span>
+            <span className="text-amber-500 text-sm">⭐</span>
           </div>
           <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-600 font-semibold">
-            <TrendingUp className="w-3.5 h-3.5" />
+            <TrendingUp className="w-3 h-3" />
             <span>+0.2 vs last month</span>
-            <span className="text-slate-400 font-normal ml-1">({stats.totalReviews || 428} total)</span>
           </div>
         </div>
 
-        {/* Metric 2: Review Response Rate */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+        {/* Metric 3: Total Reviews */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Review Response Rate</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[#034bc0] border border-blue-200">
-              <MessageSquare className="w-4 h-4" />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Reviews</span>
+            <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center text-[#034bc0] border border-blue-200">
+              <MessageSquare className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl lg:text-3xl font-extrabold text-slate-900">
-              {stats.responseRate || '94.2%'}
+          <div className="mt-2.5 flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+              {(stats.totalReviews || 1284).toLocaleString()}
             </span>
-          </div>
-          <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-600 font-semibold">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Avg Reply Speed: 2.4 hours</span>
-          </div>
-        </div>
-
-        {/* Metric 3: Top-3 Keywords */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Top-3 Local Rankings</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-200">
-              <Search className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl lg:text-3xl font-extrabold text-slate-900">
-              {stats.top3Keywords || '5'}
-            </span>
-            <span className="text-xs text-slate-400 font-medium">terms in 3-Pack</span>
-          </div>
-          <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-600 font-semibold">
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>+{stats.improvedKeywords || 2} moved up this week</span>
-          </div>
-        </div>
-
-        {/* Metric 4: Geo-Grid Coverage */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Geo-Grid Visibility</span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-200">
-              <MapPin className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl lg:text-3xl font-extrabold text-slate-900">78.4%</span>
-            <span className="text-xs text-slate-400 font-medium">(5km radius)</span>
           </div>
           <div className="mt-2 flex items-center gap-1 text-[11px] text-[#034bc0] font-semibold">
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            <span onClick={() => navigate('/geo-grid')} className="cursor-pointer hover:underline">
-              Inspect 5x5 heatmap pins
-            </span>
+            <TrendingUp className="w-3 h-3" />
+            <span>Growth +6.7%</span>
           </div>
         </div>
+
+        {/* Metric 4: Reviews This Month */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">This Month</span>
+            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-200">
+              <TrendingUp className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="mt-2.5 flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+              {stats.reviewsThisMonth || '+86'}
+            </span>
+          </div>
+          <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-600 font-semibold">
+            <CheckCircle2 className="w-3 h-3" />
+            <span>Campaign Active</span>
+          </div>
+        </div>
+
+        {/* Metric 5: Sentiment Breakdown */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sentiment</span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-200">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="mt-2.5 flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-extrabold text-emerald-600">
+              {stats.positivePercent || 87}%
+            </span>
+            <span className="text-[10px] text-slate-400 font-bold">POS</span>
+          </div>
+          <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-slate-500">
+            <span className="text-rose-600 font-bold">{stats.negativePercent || 8}% Neg</span>
+            <span>•</span>
+            <span className="text-slate-500">{stats.neutralPercent || 5}% Neu</span>
+          </div>
+        </div>
+
+        {/* Metric 6: Competitor Position */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Competitor Rank</span>
+            <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-200">
+              <span className="text-xs font-black">#</span>
+            </div>
+          </div>
+          <div className="mt-2.5 flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+              {stats.competitorPosition || '#2'}
+            </span>
+            <span className="text-xs text-slate-500 font-medium">in Area</span>
+          </div>
+          <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-600 font-bold">
+            <ArrowUpRight className="w-3 h-3" />
+            <span>Targeting #1 Spot</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Section 9: AUTOMATIC REVIEW FEEDBACK & LOCAL SEO INTELLIGENCE DASHBOARD PANEL */}
+      <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-[#034bc0] shrink-0">
+              <Sparkles className="w-5 h-5 text-[#034bc0]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-extrabold text-slate-900">Automatic Review Feedback & Intelligence</h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-[#034bc0]">
+                  Real-time NLP
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Continuous AI monitoring aggregating genuine Google customer feedback, complaints, and local search signals
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase border ${
+              trends.aiIntelligence?.priority === 'HIGH'
+                ? 'bg-rose-100 text-rose-800 border-rose-300'
+                : 'bg-amber-100 text-amber-800 border-amber-300'
+            }`}>
+              Priority: {trends.aiIntelligence?.priority || 'MEDIUM'}
+            </span>
+            <button
+              onClick={() => navigate('/reviews')}
+              className="text-xs font-bold text-[#034bc0] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>View All Reviews</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Box 1: Review Feedback */}
+          <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200/80 space-y-2">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-[#034bc0]" />
+              <span className="text-xs font-extrabold uppercase tracking-wide text-[#034bc0]">
+                Review Feedback
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
+              "{trends.aiIntelligence?.identifiedPattern || "Customers frequently appreciate the staff's behaviour and service quality, while waiting time is the most common complaint."}"
+            </p>
+          </div>
+
+          {/* Box 2: AI Insight */}
+          <div className="p-4 rounded-xl bg-indigo-50/60 border border-indigo-200/80 space-y-2">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-indigo-700" />
+              <span className="text-xs font-extrabold uppercase tracking-wide text-indigo-800">
+                AI Trend Insight
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
+              "{trends.aiIntelligence?.unresolvedAlert || "Waiting time has appeared in recent reviews during the last 30 days."}"
+            </p>
+          </div>
+
+          {/* Box 3: Recommendation */}
+          <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200/80 space-y-2">
+            <div className="flex items-center gap-2">
+              <Lightbulb className="w-4 h-4 text-amber-700" />
+              <span className="text-xs font-extrabold uppercase tracking-wide text-amber-800">
+                Recommendation
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
+              "{trends.aiIntelligence?.actionableRecommendation || "Consider increasing staffing during peak hours and improving appointment/service scheduling."}"
+            </p>
+          </div>
+        </div>
+
+        {/* Customer Search / Topic Signals (Section 13) */}
+        {trends.aiIntelligence?.localSeoSignals?.length > 0 && (
+          <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-extrabold text-slate-600 uppercase tracking-wide mr-1">
+              Customer Search & Topic Signals:
+            </span>
+            {trends.aiIntelligence.localSeoSignals.map((sig, idx) => (
+              <span
+                key={idx}
+                className="px-2.5 py-1 rounded-lg bg-slate-100 text-xs font-bold text-slate-800 border border-slate-200 flex items-center gap-1.5"
+                title={sig.opportunity}
+              >
+                <Search className="w-3 h-3 text-[#034bc0]" />
+                <span className="capitalize">{sig.phrase}</span>
+                <span className="text-[10px] bg-white px-1.5 py-0.5 rounded border border-slate-300 text-slate-600 font-black">
+                  {sig.mentions} mentions
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Main Charts Row */}
@@ -329,23 +470,123 @@ export const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Review Intelligence Topics & Quick Workflows */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Top Praise & Complaint Themes */}
-        <div className="lg:col-span-2 p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">Customer Review Intelligence Themes</h2>
-              <p className="text-xs text-slate-500">Dynamic niche topics extracted from customer review language</p>
+      {/* AI INTELLIGENCE & RECOMMENDATION SPOTLIGHT */}
+      <div className="rounded-2xl bg-linear-to-r from-blue-50 via-indigo-50/60 to-white border border-blue-200 p-5 sm:p-6 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#034bc0] text-white flex items-center gap-1.5 shadow-xs">
+                <Sparkles className="w-3.5 h-3.5" />
+                AI Customer Voice & Reputation Insights
+              </span>
+              <span className="text-xs text-emerald-700 font-bold bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                87% Positive Sentiment
+              </span>
             </div>
-            <span className="text-xs font-semibold text-slate-500">Live NLP Detection</span>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+              “Customers frequently mention staff behaviour, service quality and waiting time.”
+            </h3>
+            <div className="p-3.5 rounded-xl bg-white/90 border border-blue-200/80 text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+              <strong className="text-[#034bc0]">💡 AI Recommendation:</strong> “Improve response time and address waiting-time complaints to increase customer satisfaction and review sentiment.”
+            </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="flex flex-row lg:flex-col gap-2 shrink-0">
+            <button
+              onClick={() => navigate('/reviews')}
+              className="px-4 py-2.5 rounded-xl bg-[#034bc0] hover:bg-[#023aa0] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Generate AI Review Replies</span>
+            </button>
+            <button
+              onClick={() => navigate('/campaigns')}
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              <span>Collect Feedback with AI Booster</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Competitor Intelligence & Review Themes Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Competitor Intelligence Comparison Table */}
+        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span>🏆 Competitor Intelligence</span>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">
+                  Rank #2 Local
+                </span>
+              </h2>
+              <p className="text-xs text-slate-500">Benchmark your business against top local competitor</p>
+            </div>
+            <button
+              onClick={() => navigate('/competitors')}
+              className="text-xs text-[#034bc0] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+            >
+              All Competitors <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px]">
+                  <th className="py-2.5 font-bold">Metric</th>
+                  <th className="py-2.5 font-bold text-[#034bc0]">Your Business</th>
+                  <th className="py-2.5 font-bold text-slate-600">Top Competitor</th>
+                  <th className="py-2.5 font-bold text-right">Advantage</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-semibold">
+                {(trends.competitorComparison || [
+                  { metric: 'Google Rating', yourBusiness: '4.6 ⭐', competitor: '4.4 ⭐', status: 'ahead' },
+                  { metric: 'Total Reviews', yourBusiness: '1,284', competitor: '1,850', status: 'behind' },
+                  { metric: 'Review Growth Rate', yourBusiness: '+6.7%', competitor: '+3.2%', status: 'ahead' },
+                  { metric: 'Positive Sentiment', yourBusiness: '87%', competitor: '81%', status: 'ahead' },
+                  { metric: 'Local SEO Health Score', yourBusiness: '82 / 100', competitor: '76 / 100', status: 'ahead' }
+                ]).map((row, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 text-slate-800 font-bold">{row.metric}</td>
+                    <td className="py-3 text-[#034bc0] font-extrabold">{row.yourBusiness}</td>
+                    <td className="py-3 text-slate-600">{row.competitor}</td>
+                    <td className="py-3 text-right">
+                      {row.status === 'ahead' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">
+                          <TrendingUp className="w-3 h-3" /> Ahead
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800">
+                          Targeting
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Customer Review Intelligence Themes */}
+        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Customer Review Voice Topics</h2>
+              <p className="text-xs text-slate-500">Key topics extracted from genuine customer reviews</p>
+            </div>
+            <span className="text-xs font-semibold text-slate-500">NLP Monitored</span>
+          </div>
+
+          <div className="space-y-2.5">
             {(trends.topThemes || []).map((t, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+              <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
                 <div className="flex items-center gap-3">
-                  <span className={`w-2.5 h-2.5 rounded-full ${t.type === 'praise' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${t.type === 'praise' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
                   <div className="flex flex-col">
                     <span className="text-xs font-bold text-slate-900">{t.name}</span>
                     <span className="text-[10px] text-slate-500">{t.mentions} customer mentions in reviews</span>
@@ -353,79 +594,73 @@ export const DashboardPage = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="w-24 bg-slate-200 rounded-full h-2 overflow-hidden">
+                  <div className="w-20 bg-slate-200 rounded-full h-2 overflow-hidden">
                     <div
                       className={`h-full rounded-full ${t.type === 'praise' ? 'bg-emerald-500' : 'bg-rose-500'}`}
                       style={{ width: `${t.sentiment}%` }}
                     ></div>
                   </div>
                   <span className={`text-xs font-bold ${t.type === 'praise' ? 'text-emerald-700' : 'text-rose-700'}`}>
-                    {t.sentiment}% {t.type}
+                    {t.sentiment}%
                   </span>
                 </div>
               </div>
             ))}
           </div>
         </div>
+      </div>
 
-        {/* Quick Operations Launchpad */}
-        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4 flex flex-col justify-between">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">Operations Launchpad</h2>
-            <p className="text-xs text-slate-500">Execute essential Local SEO and Reputation actions</p>
-          </div>
+      {/* Quick Operations Launchpad */}
+      <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
+        <div>
+          <h2 className="text-base font-bold text-slate-900">Operations Launchpad</h2>
+          <p className="text-xs text-slate-500">Direct shortcuts to execute reputation & Local SEO workflows</p>
+        </div>
 
-          <div className="space-y-2.5">
-            <button
-              onClick={() => navigate('/reviews')}
-              className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-blue-50 text-left transition-colors border border-slate-200 text-xs font-semibold text-slate-800 hover:text-[#034bc0] group cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <MessageSquare className="w-4 h-4 text-[#034bc0]" />
-                <span>Review Inbox ({stats.unansweredReviews || 2} unanswered)</span>
-              </div>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#034bc0] group-hover:translate-x-0.5 transition-all" />
-            </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <button
+            onClick={() => navigate('/reviews')}
+            className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 hover:bg-blue-50 text-left transition-colors border border-slate-200 text-xs font-semibold text-slate-800 hover:text-[#034bc0] group cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <MessageSquare className="w-4 h-4 text-[#034bc0]" />
+              <span>Review Inbox ({stats.unansweredReviews || 2})</span>
+            </div>
+            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#034bc0] group-hover:translate-x-0.5 transition-all" />
+          </button>
 
-            <button
-              onClick={() => navigate('/geo-grid')}
-              className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-blue-50 text-left transition-colors border border-slate-200 text-xs font-semibold text-slate-800 hover:text-[#034bc0] group cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <MapPin className="w-4 h-4 text-[#034bc0]" />
-                <span>Geo-Grid Heatmap Scanner</span>
-              </div>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#034bc0] group-hover:translate-x-0.5 transition-all" />
-            </button>
+          <button
+            onClick={() => navigate('/geo-grid')}
+            className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 hover:bg-blue-50 text-left transition-colors border border-slate-200 text-xs font-semibold text-slate-800 hover:text-[#034bc0] group cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <MapPin className="w-4 h-4 text-[#034bc0]" />
+              <span>Geo-Grid Heatmap</span>
+            </div>
+            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#034bc0] group-hover:translate-x-0.5 transition-all" />
+          </button>
 
-            <button
-              onClick={() => navigate('/campaigns')}
-              className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-blue-50 text-left transition-colors border border-slate-200 text-xs font-semibold text-slate-800 hover:text-[#034bc0] group cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <QrCode className="w-4 h-4 text-emerald-600" />
-                <span>QR Code Review Campaigns</span>
-              </div>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
-            </button>
+          <button
+            onClick={() => navigate('/campaigns')}
+            className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 hover:bg-blue-50 text-left transition-colors border border-slate-200 text-xs font-semibold text-slate-800 hover:text-[#034bc0] group cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <QrCode className="w-4 h-4 text-emerald-600" />
+              <span>QR Review Campaigns</span>
+            </div>
+            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
+          </button>
 
-            <button
-              onClick={() => navigate('/reports')}
-              className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-blue-50 text-left transition-colors border border-slate-200 text-xs font-semibold text-slate-800 hover:text-[#034bc0] group cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <ShieldCheck className="w-4 h-4 text-amber-600" />
-                <span>Export Executive PDF Report</span>
-              </div>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
-            </button>
-          </div>
-
-          <div className="pt-3 border-t border-slate-100">
-            <span className="text-[11px] text-slate-400">
-              Agency Multi-Tenant Node: {overview?.business?.city || 'Ahmedabad, Gujarat'}
-            </span>
-          </div>
+          <button
+            onClick={() => navigate('/reports')}
+            className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 hover:bg-blue-50 text-left transition-colors border border-slate-200 text-xs font-semibold text-slate-800 hover:text-[#034bc0] group cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-amber-600" />
+              <span>Export Executive PDF</span>
+            </div>
+            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
+          </button>
         </div>
       </div>
     </div>

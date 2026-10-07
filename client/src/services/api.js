@@ -38,6 +38,9 @@ export const api = {
   login: (credentials) => request('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
   register: (payload) => request('/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
   getMe: () => request('/auth/me'),
+  forgotPassword: (payload) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify(payload) }),
+  verifyOtp: (payload) => request('/auth/verify-otp', { method: 'POST', body: JSON.stringify(payload) }),
+  resetPassword: (payload) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Workspaces
   getCurrentWorkspace: () => request('/workspaces/current'),
@@ -65,6 +68,12 @@ export const api = {
   // Reviews & AI Replies
   listReviews: (params = '') => request(`/reviews${params}`),
   getReviewById: (id) => request(`/reviews/${id}`),
+  getReviewFeedback: (id) => request(`/reviews/${id}/feedback`),
+  analyzeReview: (id) => request(`/reviews/${id}/analyze`, { method: 'POST' }),
+  reanalyzeReview: (id) => request(`/reviews/${id}/reanalyze`, { method: 'POST' }),
+  getReviewsAnalytics: (params = '') => request(`/reviews/analytics${params}`),
+  getReviewsInsights: (params = '') => request(`/reviews/insights${params}`),
+  generateReviewResponse: (id, payload) => request(`/reviews/${id}/generate-response`, { method: 'POST', body: JSON.stringify(payload || {}) }),
   generateAIReply: (id, payload) => request(`/reviews/${id}/generate-reply`, { method: 'POST', body: JSON.stringify(payload || {}) }),
   approveAndPublishReply: (id, payload) => request(`/reviews/${id}/approve`, { method: 'POST', body: JSON.stringify(payload || {}) }),
 
@@ -72,12 +81,29 @@ export const api = {
   listCampaigns: () => request('/campaigns'),
   getCampaignById: (id) => request(`/campaigns/${id}`),
   createCampaign: (payload) => request('/campaigns', { method: 'POST', body: JSON.stringify(payload) }),
+  duplicateCampaign: (id) => request(`/campaigns/${id}/duplicate`, { method: 'POST' }),
   updateCampaign: (id, payload) => request(`/campaigns/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   updateCampaignStatus: (id, status) => request(`/campaigns/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   deleteCampaign: (id) => request(`/campaigns/${id}`, { method: 'DELETE' }),
   getCampaignFeedbacks: (id) => request(`/campaigns/${id}/feedbacks`),
   getPublicCampaign: (slug) => request(`/campaigns/public/${slug}`),
   submitFeedback: (payload) => request('/campaigns/public/feedback', { method: 'POST', body: JSON.stringify(payload) }),
+  trackCampaignEvent: (campaignIdOrPayload, eventType, metadata) => {
+    const body = typeof campaignIdOrPayload === 'object'
+      ? campaignIdOrPayload
+      : { campaignId: campaignIdOrPayload, eventType, metadata };
+    return request('/campaigns/public/event', { method: 'POST', body: JSON.stringify(body) });
+  },
+  autoPostReview: (payload) => request('/campaigns/public/auto-post-review', { method: 'POST', body: JSON.stringify(payload) }),
+  listQrCodes: () => request('/campaigns/qr-codes'),
+  saveQrCode: (payload) => request('/campaigns/qr-codes', { method: 'POST', body: JSON.stringify(payload) }),
+  deleteQrCode: (id) => request(`/campaigns/qr-codes/${id}`, { method: 'DELETE' }),
+  listCustomers: (params = '') => request(`/campaigns/customers${params}`),
+  createCustomer: (payload) => request('/campaigns/customers', { method: 'POST', body: JSON.stringify(payload) }),
+  importCustomers: (customers) => request('/campaigns/customers/import', { method: 'POST', body: JSON.stringify({ customers }) }),
+  deleteCustomer: (id) => request(`/campaigns/customers/${id}`, { method: 'DELETE' }),
+  getCampaignAnalyticsOverview: () => request('/campaigns/analytics/overview'),
+  generateAiCampaignMessage: (payload) => request('/campaigns/ai-message', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Keywords & Rank Tracking
   listKeywords: (params = '') => request(`/keywords${params}`),

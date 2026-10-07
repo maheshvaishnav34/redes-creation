@@ -1,7 +1,20 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { query } from '../../config/db.js';
 import { logAudit } from '../../middleware/auditLogger.js';
+
+// In-memory OTP store: email -> { otp, expiresAt }
+const otpStore = new Map();
+// In-memory reset-token store: token -> { email, expiresAt }
+const resetTokenStore = new Map();
+
+const OTP_TTL_MS   = 10 * 60 * 1000; // 10 min
+const TOKEN_TTL_MS = 15 * 60 * 1000; // 15 min
+
+function generateOtp() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
 export const login = async (req, res, next) => {
   try {
@@ -161,6 +174,117 @@ export const getMe = async (req, res, next) => {
       businesses: bizRes.rows,
       activeBusinessId: bizRes.rows[0]?.id || null
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/* ─── FORGOT PASSWORD: generate & "send" OTP (Registered accounts only) ─── */
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.trim()) {
+      return res.status(400).json({ success: false, error: 'Work email address is required' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Check if user exists with this email in the database
+    const userRes = await query(
+      `SELECT id, email, full_name FROM users WHERE LOWER(email) = LOWER($1) AND is_active = TRUE`,
+      [cleanEmail]
+    );
+
+    // If account was NOT created, reject immediately with clear error
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        notFound: true,
+        error: 'This email is not registered. Please create an account first.' 
+      });
+    }
+
+    const otp = generateOtp();
+    otpStore.set(cleanEmail, { otp, expiresAt: Date.now() + OTP_TTL_MS });
+
+    // Log OTP to server terminal for development/testing
+    console.log(`[OTP] Sent to registered account: ${cleanEmail} -> ${otp} (valid 10 min)`);
+
+    res.json({ 
+      success: true, 
+      message: 'OTP sent successfully to your registered email.',
+      devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/* ─── VERIFY OTP ─── */
+export const verifyOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ success: false, error: 'Email and OTP are required' });
+
+    const key = email.trim().toLowerCase();
+
+    // Verify account still exists and is active
+    const userRes = await query(
+      `SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND is_active = TRUE`,
+      [key]
+    );
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Registered account not found. Please sign up first.' });
+    }
+
+    const record = otpStore.get(key);
+
+    if (!record || record.otp !== otp || Date.now() > record.expiresAt) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired OTP code' });
+    }
+
+    otpStore.delete(key); // consume OTP
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    resetTokenStore.set(resetToken, { email: key, expiresAt: Date.now() + TOKEN_TTL_MS });
+
+    res.json({ success: true, resetToken });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/* ─── RESET PASSWORD ─── */
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { resetToken, newPassword } = req.body;
+    if (!resetToken || !newPassword) {
+      return res.status(400).json({ success: false, error: 'Reset token and new password are required' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
+    }
+
+    const record = resetTokenStore.get(resetToken);
+    if (!record || Date.now() > record.expiresAt) {
+      return res.status(400).json({ success: false, error: 'Reset token is invalid or has expired' });
+    }
+
+    resetTokenStore.delete(resetToken); // consume token
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const result = await query(
+      `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE LOWER(email) = LOWER($2) AND is_active = TRUE RETURNING id, workspace_id`,
+      [passwordHash, record.email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    await logAudit(result.rows[0].workspace_id, result.rows[0].id, 'PASSWORD_RESET', 'users', result.rows[0].id, { email: record.email }, req.ip);
+
+    res.json({ success: true, message: 'Password has been reset successfully.' });
   } catch (err) {
     next(err);
   }

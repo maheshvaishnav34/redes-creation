@@ -100,13 +100,12 @@ export default function LoginPage() {
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
                   Password
                 </label>
-                <a 
-                  href="#forgot" 
-                  onClick={(e) => { e.preventDefault(); alert('Password reset link sent to registered email.'); }} 
+                <Link 
+                  to="/forgot-password" 
                   className="text-xs text-[#034bc0] font-medium hover:underline cursor-pointer"
                 >
                   Forgot?
-                </a>
+                </Link>
               </div>
               <div className="relative">
                 <input

@@ -23,6 +23,7 @@ import reportRoutes from './modules/reports/reports.routes.js';
 import billingRoutes from './modules/billing/billing.routes.js';
 import notificationRoutes from './modules/notifications/notifications.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
+import { reviewWorker } from './modules/reviews/reviews.worker.js';
 
 import { errorHandler } from './middleware/errorHandler.js';
 import { pool } from './config/db.js';
@@ -41,10 +42,36 @@ app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false
 }));
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'https://client-seven-lemon-73.vercel.app',
+  /^https:\/\/.*\.vercel\.app$/,
+  'http://localhost:5173',
+  'http://localhost:3000',
+  // Allow any device on the local network (QR scan from phones, tablets, etc.)
+  /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
+  /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
+  /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d+\.\d+(:\d+)?$/,
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || '*',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Postman, same-origin)
+    if (!origin) return callback(null, true);
+    const allowed = allowedOrigins.some(o =>
+      typeof o === 'string' ? o === origin : o.test(origin)
+    );
+    if (allowed) return callback(null, true);
+    // In development, log but allow all origins
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`[CORS] Allowing dev origin: ${origin}`);
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-workspace-id', 'x-business-id']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-workspace-id', 'x-business-id'],
+  credentials: true
 }));
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
@@ -76,6 +103,7 @@ app.use('/api/v1/workspaces', workspaceRoutes);
 app.use('/api/v1/business', businessRoutes);
 app.use('/api/v1/google', googleRoutes);
 app.use('/api/v1/reviews', reviewRoutes);
+app.use('/api/reviews', reviewRoutes); // Direct alias for Section 16 requirements
 app.use('/api/v1/campaigns', campaignRoutes);
 app.use('/api/v1/keywords', keywordRoutes);
 app.use('/api/v1/geo-grid', geogridRoutes);
@@ -109,6 +137,9 @@ const server = app.listen(PORT, () => {
   console.log(`📡 Health Check: http://localhost:${PORT}/health`);
   if (isProduction) console.log(`🌐 Serving React frontend from /client/dist`);
   console.log(`=======================================================`);
+
+  // Start background worker for automatic review analysis
+  reviewWorker.start();
 });
 
 export default app;

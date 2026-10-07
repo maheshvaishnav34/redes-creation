@@ -191,28 +191,7 @@ CREATE TABLE IF NOT EXISTS review_responses (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 11. REVIEW CAMPAIGNS
-CREATE TABLE IF NOT EXISTS review_campaigns (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    business_id UUID REFERENCES business_locations(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    channel VARCHAR(50) DEFAULT 'qr', -- qr, email, sms, direct_link, whatsapp
-    message_template TEXT,
-    target_audience VARCHAR(255),
-    review_link TEXT,
-    qr_code_data TEXT,
-    google_review_url TEXT,
-    post_review_enabled BOOLEAN DEFAULT TRUE,
-    status VARCHAR(50) DEFAULT 'active', -- active, paused, completed
-    sent_count INTEGER DEFAULT 0,
-    delivered_count INTEGER DEFAULT 0,
-    clicked_count INTEGER DEFAULT 0,
-    feedback_started_count INTEGER DEFAULT 0,
-    destination_clicked_count INTEGER DEFAULT 0,
-    attributed_reviews_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- 11. REVIEW CAMPAIGNS (defined in section 28 below with full schema)
 
 -- 12. CUSTOMER FEEDBACK LOGS (from Campaign QR/Link)
 CREATE TABLE IF NOT EXISTS review_feedback (
@@ -408,25 +387,7 @@ CREATE TABLE IF NOT EXISTS reports (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 21. SUBSCRIPTIONS & USAGE
-CREATE TABLE IF NOT EXISTS subscriptions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    workspace_id UUID UNIQUE REFERENCES workspaces(id) ON DELETE CASCADE,
-    plan VARCHAR(50) DEFAULT 'professional',
-    status VARCHAR(50) DEFAULT 'active',
-    billing_cycle VARCHAR(50) DEFAULT 'monthly',
-    locations_limit INTEGER DEFAULT 5,
-    reviews_limit INTEGER DEFAULT 1000,
-    ai_generations_limit INTEGER DEFAULT 500,
-    keywords_limit INTEGER DEFAULT 100,
-    geo_grids_limit INTEGER DEFAULT 50,
-    current_locations INTEGER DEFAULT 1,
-    current_reviews INTEGER DEFAULT 84,
-    current_ai_generations INTEGER DEFAULT 36,
-    current_keywords INTEGER DEFAULT 28,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- 21. SUBSCRIPTIONS (defined in section 25 below)
 
 -- 22. AI PROMPT VERSIONS & GENERATIONS
 CREATE TABLE IF NOT EXISTS ai_prompt_versions (

@@ -7,6 +7,7 @@ import { AppLayout } from './components/layout/AppLayout.jsx';
 import LandingPage from './pages/LandingPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
+import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import OnboardingPage from './pages/OnboardingPage.jsx';
 import CustomerFeedbackPage from './pages/CustomerFeedbackPage.jsx';
 
@@ -67,7 +68,9 @@ export default function App() {
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/feedback/:slug" element={<CustomerFeedbackPage />} />
+        <Route path="/r/:slug" element={<CustomerFeedbackPage />} />
 
         {/* Multi-Step Onboarding */}
         <Route 
@@ -92,6 +95,8 @@ export default function App() {
           <Route path="/google" element={<GoogleProfilePage />} />
           <Route path="/reviews" element={<ReviewsPage />} />
           <Route path="/campaigns" element={<ReviewCampaignsPage />} />
+          <Route path="/review-campaigns" element={<ReviewCampaignsPage />} />
+          <Route path="/review-campaigns/:id" element={<ReviewCampaignsPage />} />
           <Route path="/keywords" element={<KeywordsPage />} />
           <Route path="/geo-grid" element={<GeoGridPage />} />
           <Route path="/seo" element={<SeoAuditPage />} />

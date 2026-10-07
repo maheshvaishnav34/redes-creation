@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Redes Creation — Google Review Connector</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      width: 360px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      padding: 16px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 10px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #034bc0;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #047857;
+      background: #d1fae5;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      border: 1px solid #a7f3d0;
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      margin-bottom: 12px;
+    }
+    .card-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .source-tag {
+      font-size: 10px;
+      font-weight: 600;
+      color: #034bc0;
+      background: #eff6ff;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    textarea {
+      width: 100%;
+      height: 90px;
+      font-family: inherit;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #1e293b;
+      padding: 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #f8fafc;
+      resize: vertical;
+      outline: none;
+    }
+    textarea:focus {
+      border-color: #034bc0;
+      background: #ffffff;
+      box-shadow: 0 0 0 2px rgba(3, 75, 192, 0.15);
+    }
+    .stars-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin: 8px 0;
+      font-size: 16px;
+      color: #f59e0b;
+    }
+    .btn-primary {
+      width: 100%;
+      padding: 11px;
+      background: #034bc0;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 800;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 2px 6px rgba(3, 75, 192, 0.25);
+      margin-bottom: 8px;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover {
+      background: #023aa0;
+    }
+    .btn-row {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-secondary {
+      flex: 1;
+      padding: 8px;
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-secondary:hover {
+      background: #e2e8f0;
+    }
+    .tip {
+      font-size: 10.5px;
+      color: #64748b;
+      line-height: 1.4;
+      margin-top: 10px;
+      background: #f1f5f9;
+      padding: 8px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div class="title">Redes Creation Auto-Filler</div>
+    </div>
+    <div class="status-badge">
+      <span class="dot"></span>
+      <span>Connected</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">
+      <span>Review Draft to Fill:</span>
+      <span class="source-tag" id="statusTag">Ready</span>
+    </div>
+    <textarea id="reviewTextInput" placeholder="Enter or paste review draft here..."></textarea>
+    <div class="stars-row">
+      <span>⭐⭐⭐⭐⭐</span>
+      <span style="font-size: 11px; font-weight: 700; color: #475569; margin-left: 6px;">5-Star Rating</span>
+    </div>
+  </div>
+
+  <button class="btn-primary" id="fillGoogleBtn">
+    <span>⚡ Auto-Fill in Open Google Tab</span>
+  </button>
+
+  <div class="btn-row">
+    <button class="btn-secondary" id="pasteClipBtn">📋 Paste Clipboard</button>
+    <button class="btn-secondary" id="copyBtn">📄 Copy Text</button>
+  </div>
+
+  <div class="tip" id="statusMessage">
+    💡 <strong>Tip:</strong> Google Review tab open karke upar <strong>"Auto-Fill in Open Google Tab"</strong> dabayein, text Google ke box me direct fill ho jayega!
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

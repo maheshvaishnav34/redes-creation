@@ -15,7 +15,12 @@ import {
   Send,
   RefreshCw,
   ThumbsUp,
-  Tag
+  Tag,
+  Lightbulb,
+  Copy,
+  RotateCw,
+  Target,
+  ArrowRight
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -26,11 +31,14 @@ export const ReviewsPage = () => {
   const [reviews, setReviews] = useState([]);
   const [summary, setSummary] = useState({});
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [reanalyzingId, setReanalyzingId] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('all'); // all, unanswered, replied
   const [starFilter, setStarFilter] = useState(null); // 1, 2, 3, 4, 5
-  const [sentimentFilter, setSentimentFilter] = useState(null); // positive, neutral, negative
+  const [sentimentFilter, setSentimentFilter] = useState(null); // positive, mixed, neutral, negative
   const [searchQuery, setSearchQuery] = useState('');
 
   // AI Reply Generator Modal State
@@ -74,16 +82,61 @@ export const ReviewsPage = () => {
     fetchReviews();
   };
 
-  const handleOpenAiModal = async (review) => {
+  const handleSyncRecent = async () => {
+    try {
+      setSyncing(true);
+      await api.syncGoogleNow();
+      setTimeout(async () => {
+        await fetchReviews();
+        setSyncing(false);
+      }, 1500);
+    } catch (err) {
+      console.error('[REVIEWS] Google sync failed:', err);
+      await fetchReviews();
+      setSyncing(false);
+    }
+  };
+
+  const handleReanalyze = async (reviewId) => {
+    try {
+      setReanalyzingId(reviewId);
+      const res = await api.reanalyzeReview(reviewId);
+      if (res.success && res.review) {
+        setReviews(prev => prev.map(r => r.id === reviewId ? res.review : r));
+      } else {
+        await fetchReviews();
+      }
+    } catch (err) {
+      console.error('[REVIEWS] Re-analysis failed:', err);
+      alert('Failed to re-analyze review: ' + (err.message || 'Server error'));
+    } finally {
+      setReanalyzingId(null);
+    }
+  };
+
+  const handleCopySuggestion = (text, id) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2500);
+  };
+
+  const handleOpenAiModal = async (review, prefilledText = null) => {
     setActiveModalReview(review);
     setGeneratingAi(true);
     setAiOptions([]);
     setFeedbackMsg('');
 
+    if (prefilledText) {
+      setSelectedOptionText(prefilledText);
+      setGeneratingAi(false);
+      return;
+    }
+
     try {
       const res = await api.generateAIReply(review.id, { customTone: selectedTone });
       setAiOptions(res.options || []);
-      setSelectedOptionText(res.response?.response_text || res.options?.[0]?.text || '');
+      setSelectedOptionText(res.response?.response_text || res.options?.[0]?.text || review.response_suggestion || '');
       setSafetyChecks(res.safetyChecks || null);
     } catch (err) {
       console.error('[AI_REPLY] Error generating reply:', err);
@@ -120,18 +173,24 @@ export const ReviewsPage = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Unified Review Inbox</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Review & Local SEO Intelligence</h1>
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-blue-50 text-[#034bc0] border border-blue-200">
+              Auto AI Analysis
+            </span>
+          </div>
           <p className="text-xs sm:text-sm text-slate-600 mt-1">
-            Real-time Google reviews synchronization, sentiment classification, and policy-compliant AI replies.
+            Real-time Google review sync, automatic sentiment, customer feedback synthesis, and policy-compliant AI replies.
           </p>
         </div>
 
         <button
-          onClick={fetchReviews}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-200 text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
+          onClick={handleSyncRecent}
+          disabled={syncing}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#034bc0] hover:bg-[#023aa0] text-white text-xs font-bold transition-all shadow-sm shrink-0 cursor-pointer disabled:opacity-70"
         >
-          <RefreshCw className="w-3.5 h-3.5 text-[#034bc0]" />
-          <span>Sync Recent Reviews</span>
+          <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+          <span>{syncing ? 'Syncing & Analyzing...' : 'Sync Recent Reviews'}</span>
         </button>
       </div>
 
@@ -148,14 +207,14 @@ export const ReviewsPage = () => {
           </p>
         </div>
         <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-bold text-rose-600 uppercase tracking-wider">Pending Actions</span>
-          <p className="text-2xl font-black text-rose-600 mt-0.5">{summary.unanswered_count || 0}</p>
+          <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">AI Analyzed</span>
+          <p className="text-2xl font-black text-emerald-700 mt-0.5">
+            {summary.processed_count || reviews.filter(r => r.aiAnalysis?.processed).length || 0} reviews
+          </p>
         </div>
         <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Positive Sentiment</span>
-          <p className="text-2xl font-black text-emerald-700 mt-0.5">
-            {summary.positive_count || 0} reviews
-          </p>
+          <span className="text-[11px] font-bold text-rose-600 uppercase tracking-wider">Pending Action</span>
+          <p className="text-2xl font-black text-rose-600 mt-0.5">{summary.unanswered_count || 0}</p>
         </div>
       </div>
 
@@ -166,27 +225,27 @@ export const ReviewsPage = () => {
           <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold overflow-x-auto no-scrollbar w-full sm:w-auto">
             <button
               onClick={() => setStatusFilter('all')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
                 statusFilter === 'all' 
                   ? 'bg-[#034bc0] text-white font-bold shadow-xs' 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              All Reviews
+              All Reviews ({summary.total_reviews || reviews.length})
             </button>
             <button
               onClick={() => setStatusFilter('unanswered')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
                 statusFilter === 'unanswered' 
                   ? 'bg-[#034bc0] text-white font-bold shadow-xs' 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Unanswered ({summary.unanswered_count || 0})
+              Pending Reply ({summary.unanswered_count || 0})
             </button>
             <button
               onClick={() => setStatusFilter('replied')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
                 statusFilter === 'replied' 
                   ? 'bg-[#034bc0] text-white font-bold shadow-xs' 
                   : 'text-slate-600 hover:text-slate-900'
@@ -232,7 +291,7 @@ export const ReviewsPage = () => {
           <div className="h-4 w-px bg-slate-200 mx-1"></div>
 
           {/* Sentiment Pills */}
-          {['positive', 'neutral', 'negative'].map((sent) => (
+          {['positive', 'mixed', 'neutral', 'negative'].map((sent) => (
             <button
               key={sent}
               onClick={() => setSentimentFilter(sentimentFilter === sent ? null : sent)}
@@ -265,7 +324,7 @@ export const ReviewsPage = () => {
       {loading ? (
         <div className="space-y-4 animate-pulse">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-40 bg-white rounded-2xl border border-slate-200 shadow-xs"></div>
+            <div key={i} className="h-56 bg-white rounded-2xl border border-slate-200 shadow-xs"></div>
           ))}
         </div>
       ) : reviews.length === 0 ? (
@@ -277,129 +336,314 @@ export const ReviewsPage = () => {
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {reviews.map((rev) => (
-            <div
-              key={rev.id}
-              className={`p-4 sm:p-6 rounded-2xl bg-white border transition-all shadow-xs hover:shadow-md ${
-                rev.priority === 'critical'
-                  ? 'border-rose-300 ring-2 ring-rose-100'
-                  : rev.reply_status === 'pending_approval'
-                  ? 'border-amber-300 ring-2 ring-amber-100'
-                  : 'border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              {/* Card Header: Author, Rating, Status, Date */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#034bc0] flex items-center justify-center font-black text-white text-sm shrink-0 shadow-xs">
-                    {rev.author_name?.charAt(0) || 'U'}
-                  </div>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-extrabold text-slate-900">{rev.author_name}</h3>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <div className="flex text-amber-400">
-                        {[...Array(rev.rating)].map((_, i) => (
-                          <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                        ))}
+        <div className="space-y-5">
+          {reviews.map((rev) => {
+            const ai = rev.aiAnalysis || {};
+            const feedbackText = rev.reviewFeedback || ai.reviewFeedback || '';
+            const isReanalyzing = reanalyzingId === rev.id;
+
+            return (
+              <div
+                key={rev.id}
+                className={`p-5 sm:p-6 rounded-2xl bg-white border transition-all shadow-xs hover:shadow-md ${
+                  rev.priority === 'critical' || rev.urgency === 'critical'
+                    ? 'border-rose-300 ring-2 ring-rose-100'
+                    : rev.reply_status === 'pending_approval' || rev.urgency === 'high'
+                    ? 'border-amber-300 ring-2 ring-amber-100'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                {/* Card Header: Author, Rating, Status, Date */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#034bc0] flex items-center justify-center font-black text-white text-sm shrink-0 shadow-xs">
+                      {rev.author_name?.charAt(0) || 'U'}
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-base font-extrabold text-slate-900">{rev.author_name}</h3>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex text-amber-400">
+                          {[...Array(rev.rating)].map((_, i) => (
+                            <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                          ))}
+                        </div>
+                        <span className="text-xs font-bold text-slate-700">⭐ {rev.rating}/5</span>
+                        <span className="text-xs text-slate-400">•</span>
+                        <span className="text-xs text-slate-500 font-medium">
+                          {new Date(rev.review_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
                       </div>
-                      <span className="text-xs text-slate-500 font-medium">
-                        {new Date(rev.review_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </span>
                     </div>
                   </div>
-                </div>
 
-                {/* Badges */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {rev.is_sensitive && (
-                    <span className="px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1 shadow-xs">
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-700" /> Sensitive Concern
+                  {/* Badges */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Urgency Badge */}
+                    {rev.urgency && (
+                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase border shadow-xs ${
+                        rev.urgency === 'critical'
+                          ? 'bg-rose-100 text-rose-800 border-rose-300'
+                          : rev.urgency === 'high'
+                          ? 'bg-orange-100 text-orange-800 border-orange-300'
+                          : rev.urgency === 'medium'
+                          ? 'bg-amber-100 text-amber-800 border-amber-300'
+                          : 'bg-slate-100 text-slate-700 border-slate-300'
+                      }`}>
+                        Urgency: {rev.urgency}
+                      </span>
+                    )}
+
+                    {/* Sentiment Badge */}
+                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold capitalize border shadow-xs flex items-center gap-1 ${
+                      rev.sentiment === 'positive'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : rev.sentiment === 'negative'
+                        ? 'bg-rose-100 text-rose-800 border-rose-300'
+                        : rev.sentiment === 'mixed'
+                        ? 'bg-amber-100 text-amber-800 border-amber-300'
+                        : 'bg-slate-100 text-slate-700 border-slate-300'
+                    }`}>
+                      <span>
+                        {rev.sentiment === 'positive' ? '🟢' : rev.sentiment === 'negative' ? '🔴' : rev.sentiment === 'mixed' ? '🟡' : '⚪'}
+                      </span>
+                      <span>{rev.sentiment} ({rev.sentiment_score ? Number(rev.sentiment_score).toFixed(2) : (ai.sentimentScore ? Number(ai.sentimentScore).toFixed(2) : '0.50')})</span>
                     </span>
-                  )}
 
-                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold capitalize border shadow-xs ${
-                    rev.sentiment === 'positive'
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                      : rev.sentiment === 'negative'
-                      ? 'bg-rose-100 text-rose-800 border-rose-300'
-                      : 'bg-slate-100 text-slate-700 border-slate-300'
-                  }`}>
-                    {rev.sentiment}
-                  </span>
-
-                  <span className={`px-3 py-1 rounded-full text-[11px] font-extrabold uppercase border shadow-xs ${
-                    rev.reply_status === 'replied' || rev.reply_status === 'auto_replied'
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                      : rev.reply_status === 'pending_approval'
-                      ? 'bg-amber-100 text-amber-800 border-amber-300'
-                      : 'bg-slate-100 text-slate-700 border-slate-300'
-                  }`}>
-                    {rev.reply_status === 'auto_replied' ? '✓ Auto Replied' : rev.reply_status === 'replied' ? '✓ Replied' : 'Pending Action'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Review Text - BOLD, HIGH-CONTRAST, AND CRYSTAL CLEAR */}
-              <p className="mt-4 text-sm sm:text-base text-slate-900 leading-relaxed font-semibold">
-                "{rev.review_text}"
-              </p>
-
-              {/* Detected Topics & Keywords */}
-              <div className="mt-3.5 flex flex-wrap items-center gap-2">
-                {(rev.detected_topics || []).map((topic, i) => (
-                  <span key={i} className="px-2.5 py-1 rounded-lg bg-slate-100 text-xs font-semibold text-slate-700 flex items-center gap-1.5 border border-slate-200 hover:bg-slate-200 transition-colors">
-                    <Tag className="w-3 h-3 text-[#034bc0]" />
-                    {topic}
-                  </span>
-                ))}
-                {rev.recurring_complaint && (
-                  <span className="px-2.5 py-1 rounded-lg bg-rose-100 text-xs font-bold text-rose-800 border border-rose-300 flex items-center gap-1 shadow-xs">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-700" />
-                    Recurring: {rev.recurring_complaint}
-                  </span>
-                )}
-              </div>
-
-              {/* Existing Response Box or AI Reply Action */}
-              {rev.response_text ? (
-                <div className="mt-4 p-4 rounded-xl bg-blue-50/70 border border-blue-200/90 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold text-[#034bc0] flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-[#034bc0]" />
-                      {rev.reply_status === 'replied' || rev.reply_status === 'auto_replied' ? 'Published Response' : 'Drafted AI Response'}
+                    {/* Reply Status Badge */}
+                    <span className={`px-3 py-1 rounded-full text-[11px] font-extrabold uppercase border shadow-xs ${
+                      rev.reply_status === 'replied' || rev.reply_status === 'auto_replied'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : rev.reply_status === 'pending_approval'
+                        ? 'bg-amber-100 text-amber-800 border-amber-300'
+                        : 'bg-slate-100 text-slate-700 border-slate-300'
+                    }`}>
+                      {rev.reply_status === 'auto_replied' ? '✓ Auto Replied' : rev.reply_status === 'replied' ? '✓ Replied' : 'Pending Action'}
                     </span>
-                    <span className="text-xs text-slate-600 font-semibold">Tone: {rev.response_tone || 'Professional'}</span>
                   </div>
-                  <p className="text-xs sm:text-sm text-slate-800 italic leading-relaxed font-medium">
-                    "{rev.response_text}"
-                  </p>
+                </div>
 
-                  {rev.reply_status === 'pending_approval' && (
-                    <div className="pt-2 flex items-center justify-end gap-2">
+                {/* Customer Review Text */}
+                <div className="mt-3.5 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 block mb-1">
+                    Customer Review
+                  </span>
+                  <p className="text-sm sm:text-base text-slate-900 leading-relaxed font-semibold">
+                    "{rev.review_text}"
+                  </p>
+                </div>
+
+                {/* Section 10: AUTOMATIC AI INTELLIGENCE & REVIEW FEEDBACK CARD */}
+                {feedbackText ? (
+                  <div className="mt-4 rounded-xl bg-gradient-to-br from-blue-50/60 via-slate-50/80 to-indigo-50/50 border border-blue-200/90 p-4 space-y-3.5 shadow-xs">
+                    {/* AI Feedback Header with Status & Re-analyze Button */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-100 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-[#034bc0]" />
+                        <span className="text-xs font-black uppercase tracking-wider text-[#034bc0]">
+                          Automatic AI Review Feedback
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          ✓ Processed
+                        </span>
+                      </div>
+
+                      {/* Manual Re-analyze Admin Action (Section 7) */}
                       <button
-                        onClick={() => handleOpenAiModal(rev)}
-                        className="px-4 py-2 rounded-xl bg-[#034bc0] hover:bg-[#023aa0] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                        onClick={() => handleReanalyze(rev.id)}
+                        disabled={isReanalyzing}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 text-[11px] font-bold transition-all shadow-2xs self-start sm:self-auto cursor-pointer disabled:opacity-60"
+                        title="Re-analyze this review with AI Intelligence Engine"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Review & Approve Reply</span>
+                        <RotateCw className={`w-3 h-3 text-[#034bc0] ${isReanalyzing ? 'animate-spin' : ''}`} />
+                        <span>{isReanalyzing ? 'Re-analyzing...' : 'Re-analyze Review'}</span>
                       </button>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-4 flex items-center justify-end">
-                  <button
-                    onClick={() => handleOpenAiModal(rev)}
-                    className="px-4 py-2 rounded-xl bg-[#034bc0] hover:bg-[#023aa0] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Generate AI Reply</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+
+                    {/* AI Feedback Main Text */}
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                        AI Feedback
+                      </span>
+                      <p className="text-sm font-semibold text-slate-900 leading-relaxed bg-white/80 p-3 rounded-lg border border-blue-100">
+                        {feedbackText}
+                      </p>
+                    </div>
+
+                    {/* Positive & Negative Points Breakdown */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {/* Positive Points & Praised Services */}
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700 flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5" /> Positive Points
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(rev.positive_points || ai.positivePoints || []).length > 0 ? (
+                            (rev.positive_points || ai.positivePoints).map((pt, i) => (
+                              <span key={i} className="px-2.5 py-1 rounded-lg bg-emerald-50 text-xs font-bold text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                ✓ {pt}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">None highlighted</span>
+                          )}
+                          {(rev.praised_services || ai.praisedServices || []).map((srv, i) => (
+                            <span key={`srv-${i}`} className="px-2.5 py-1 rounded-lg bg-blue-50 text-xs font-bold text-[#034bc0] border border-blue-200">
+                              ★ {srv}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Negative Points & Complaints */}
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-rose-700 flex items-center gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5" /> Negative Points & Complaints
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(rev.negative_points || ai.negativePoints || rev.complaints || ai.complaints || []).length > 0 ? (
+                            Array.from(new Set([...(rev.negative_points || ai.negativePoints || []), ...(rev.complaints || ai.complaints || [])])).map((pt, i) => (
+                              <span key={i} className="px-2.5 py-1 rounded-lg bg-rose-50 text-xs font-bold text-rose-800 border border-rose-200 flex items-center gap-1">
+                                ⚠ {pt}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">No complaints detected</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Keywords, Detected Issue & Customer Intent */}
+                    <div className="pt-2 border-t border-blue-100 flex flex-wrap items-center gap-2 text-xs">
+                      {/* Issue Tag */}
+                      {(rev.issue_type || ai.issueType) && (
+                        <div className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 font-extrabold flex items-center gap-1">
+                          <Target className="w-3.5 h-3.5 text-amber-700" />
+                          <span>Issue: {(rev.issue_type || ai.issueType).replace('_', ' ')}</span>
+                        </div>
+                      )}
+
+                      {/* Customer Intent */}
+                      {(rev.customer_intent || ai.customerIntent) && (
+                        <div className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 border border-slate-200 font-semibold flex items-center gap-1">
+                          <span className="font-extrabold text-slate-500">Intent:</span>
+                          <span>{rev.customer_intent || ai.customerIntent}</span>
+                        </div>
+                      )}
+
+                      {/* Keywords */}
+                      <div className="flex flex-wrap items-center gap-1 ml-auto">
+                        <span className="text-[11px] font-bold text-slate-500 mr-1">Keywords:</span>
+                        {Array.from(new Set([...(rev.detected_keywords || ai.keywords || []), ...(rev.detected_topics || ai.topics || [])])).slice(0, 5).map((kw, i) => (
+                          <span key={i} className="px-2 py-0.5 rounded-md bg-white text-[11px] font-semibold text-slate-700 border border-slate-200">
+                            #{kw}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* AI Response Suggestion (Section 10 & 14) */}
+                    {(rev.response_suggestion || ai.responseSuggestion) && (
+                      <div className="mt-2.5 p-3 rounded-lg bg-white border border-blue-200 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#034bc0] flex items-center gap-1">
+                            <Sparkles className="w-3 h-3" /> AI Response Suggestion
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleCopySuggestion(rev.response_suggestion || ai.responseSuggestion, rev.id)}
+                              className="text-[11px] font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 cursor-pointer"
+                            >
+                              <Copy className="w-3 h-3" />
+                              <span>{copiedId === rev.id ? 'Copied!' : 'Copy'}</span>
+                            </button>
+                            <button
+                              onClick={() => handleOpenAiModal(rev, rev.response_suggestion || ai.responseSuggestion)}
+                              className="text-[11px] font-bold text-[#034bc0] hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>Use in Reply</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-700 italic font-medium leading-relaxed">
+                          "{rev.response_suggestion || ai.responseSuggestion}"
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Improvement Recommendation (Section 10) */}
+                    {(rev.improvement_recommendation || ai.improvementRecommendation) && (
+                      <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50/80 border border-amber-200/90 text-xs">
+                        <Lightbulb className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-extrabold text-amber-900 block text-[11px] uppercase">
+                            Operational Recommendation
+                          </span>
+                          <span className="text-slate-800 font-medium">
+                            {rev.improvement_recommendation || ai.improvementRecommendation}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Pending / Processing State */
+                  <div className="mt-3.5 p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                      <RotateCw className="w-4 h-4 text-[#034bc0] animate-spin" />
+                      <span>AI Review Analysis in progress by background worker...</span>
+                    </div>
+                    <button
+                      onClick={() => handleReanalyze(rev.id)}
+                      disabled={isReanalyzing}
+                      className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                    >
+                      {isReanalyzing ? 'Analyzing...' : 'Trigger Analysis Now'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Published / Drafted Response or AI Reply Action */}
+                {rev.response_text ? (
+                  <div className="mt-4 p-4 rounded-xl bg-blue-50/70 border border-blue-200/90 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-[#034bc0] flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#034bc0]" />
+                        {rev.reply_status === 'replied' || rev.reply_status === 'auto_replied' ? 'Published Response' : 'Drafted AI Response'}
+                      </span>
+                      <span className="text-xs text-slate-600 font-semibold">Tone: {rev.response_tone || 'Professional'}</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-800 italic leading-relaxed font-medium">
+                      "{rev.response_text}"
+                    </p>
+
+                    {rev.reply_status === 'pending_approval' && (
+                      <div className="pt-2 flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleOpenAiModal(rev)}
+                          className="px-4 py-2 rounded-xl bg-[#034bc0] hover:bg-[#023aa0] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Review & Approve Reply</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-4 flex items-center justify-end">
+                    <button
+                      onClick={() => handleOpenAiModal(rev)}
+                      className="px-4 py-2 rounded-xl bg-[#034bc0] hover:bg-[#023aa0] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Open AI Reply Studio</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -413,7 +657,7 @@ export const ReviewsPage = () => {
               <div>
                 <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-[#034bc0]" />
-                  AI Reputation Reply Engine
+                  AI Reputation Reply Studio
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Review by {activeModalReview.author_name} ({activeModalReview.rating}★ Stars)
@@ -456,90 +700,103 @@ export const ReviewsPage = () => {
               </div>
             </div>
 
-            {/* AI Generated Options */}
-            {generatingAi ? (
-              <div className="py-8 text-center space-y-2">
-                <RefreshCw className="w-6 h-6 animate-spin text-[#034bc0] mx-auto" />
-                <p className="text-xs text-slate-500">Synthesizing Business Intelligence Profile & safety policy rules...</p>
+            {/* Generated Options / Editor */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-800">Review Response Draft:</label>
+                {generatingAi && (
+                  <span className="text-xs text-[#034bc0] flex items-center gap-1 font-semibold">
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Generating AI options...
+                  </span>
+                )}
               </div>
-            ) : (
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-slate-800">Generated Reply Options:</label>
-                {aiOptions.map((opt, i) => (
-                  <div
-                    key={i}
-                    onClick={() => setSelectedOptionText(opt.text)}
-                    className={`p-3.5 rounded-xl border cursor-pointer transition-all text-xs sm:text-sm leading-relaxed ${
-                      selectedOptionText === opt.text
-                        ? 'bg-blue-50 border-[#034bc0] text-slate-900 shadow-sm ring-2 ring-[#034bc0]/20'
-                        : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="font-bold text-[#034bc0] text-xs">{opt.tone}</span>
-                      {opt.isRecommended && (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase border border-emerald-200">
-                          Recommended
-                        </span>
-                      )}
-                    </div>
-                    <p className="font-medium">{opt.text}</p>
-                  </div>
-                ))}
 
-                {/* Editable Final Response */}
-                <div className="space-y-1.5 pt-2">
-                  <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
-                    <span>Editable Response Draft:</span>
-                    <span className="text-[11px] text-slate-500 font-normal">You can tweak before sending</span>
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={selectedOptionText}
-                    onChange={(e) => setSelectedOptionText(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-white border border-slate-300 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#034bc0] focus:ring-2 focus:ring-[#034bc0]/20 leading-relaxed font-medium"
-                  />
+              {aiOptions.length > 1 && (
+                <div className="space-y-2 mb-3">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                    Choose Alternative Option:
+                  </span>
+                  <div className="grid grid-cols-1 gap-2">
+                    {aiOptions.map((opt, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => setSelectedOptionText(opt.text)}
+                        className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                          selectedOptionText === opt.text
+                            ? 'bg-blue-50/80 border-[#034bc0] ring-1 ring-[#034bc0]'
+                            : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-slate-900">{opt.tone}</span>
+                          {opt.isRecommended && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-[#034bc0] font-bold">
+                              Recommended
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-slate-700 italic font-medium leading-relaxed">"{opt.text}"</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <textarea
+                rows={5}
+                value={selectedOptionText}
+                onChange={(e) => setSelectedOptionText(e.target.value)}
+                placeholder="Compose or refine the official review response..."
+                className="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-[#034bc0] focus:ring-2 focus:ring-[#034bc0]/20 font-medium"
+              />
+            </div>
+
+            {/* Quality & Safety Check Pill Bar */}
+            {safetyChecks && (
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
+                <span className="font-bold text-slate-700 flex items-center gap-1">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" /> Automated Compliance Verification:
+                </span>
+                <div className="flex flex-wrap gap-2 text-[11px]">
+                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">✓ Google Policy Passed</span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">✓ Sentiment Alignment</span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">✓ No Hallucinated Claims</span>
                 </div>
               </div>
             )}
 
-            {/* Quality & Safety Check Badges */}
-            {safetyChecks && (
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center gap-3 text-xs">
-                <span className="font-bold text-slate-600">Quality Checks:</span>
-                <span className="flex items-center gap-1 text-emerald-700 font-bold">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Fact Check Passed
-                </span>
-                <span className="flex items-center gap-1 text-emerald-700 font-bold">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Tone Validated
-                </span>
-                <span className="flex items-center gap-1 text-emerald-700 font-bold">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> No Keyword Stuffing
-                </span>
-              </div>
-            )}
-
             {feedbackMsg && (
-              <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-[#034bc0] font-bold">
+              <div className={`p-3 rounded-xl text-xs font-bold ${
+                feedbackMsg.includes('success') ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+              }`}>
                 {feedbackMsg}
               </div>
             )}
 
-            {/* Modal Actions */}
+            {/* Action Buttons */}
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
               <button
                 onClick={() => setActiveModalReview(null)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handlePublishReply}
                 disabled={publishing || !selectedOptionText}
-                className="px-5 py-2.5 rounded-xl bg-[#034bc0] hover:bg-[#023aa0] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-[#034bc0] hover:bg-[#023aa0] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
               >
-                <Send className="w-3.5 h-3.5" />
-                <span>{publishing ? 'Publishing to Google...' : 'Approve & Publish to Google'}</span>
+                {publishing ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Publishing to Google...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Approve & Publish to Google</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -548,5 +805,4 @@ export const ReviewsPage = () => {
     </div>
   );
 };
-
 export default ReviewsPage;

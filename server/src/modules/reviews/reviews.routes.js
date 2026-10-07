@@ -2,6 +2,11 @@ import { Router } from 'express';
 import {
   listReviews,
   getReviewById,
+  getReviewFeedback,
+  analyzeReview,
+  reanalyzeReview,
+  getReviewAnalytics,
+  getReviewInsights,
   generateAIReply,
   approveAndPublishReply
 } from './reviews.controller.js';
@@ -13,14 +18,20 @@ const router = Router();
 
 router.use(authenticate, tenantIsolation);
 
-// Level 1: View - Client can view all synced Google reviews (reviews.view ✅)
+// Aggregated Intelligence Endpoints (Must be above /:id)
+router.get('/analytics', getReviewAnalytics);
+router.get('/insights', getReviewInsights);
+
+// Review Listing & Details
 router.get('/', listReviews);
 router.get('/:id', getReviewById);
+router.get('/:id/feedback', getReviewFeedback);
 
-// Level 2: Approve & Execute - Client can generate AI replies and approve/publish (ai.generate ✅, reviews.approve_reply ✅)
+// AI Actions & Analysis
+router.post('/:id/analyze', analyzeReview);
+router.post('/:id/reanalyze', authorize(['client', 'owner', 'admin']), reanalyzeReview);
+router.post('/:id/generate-response', authorize(['client', 'owner', 'admin']), generateAIReply);
 router.post('/:id/generate-reply', authorize(['client', 'owner', 'admin']), generateAIReply);
 router.post('/:id/approve', authorize(['client', 'owner', 'admin']), approveAndPublishReply);
-
-// Level 3: Restricted - reviews.delete ❌ (Google policy & system restriction: Reviews cannot be deleted by client)
 
 export default router;
