@@ -23,7 +23,9 @@ import reportRoutes from './modules/reports/reports.routes.js';
 import billingRoutes from './modules/billing/billing.routes.js';
 import notificationRoutes from './modules/notifications/notifications.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
+import automationRoutes from './modules/automation/automation.routes.js';
 import { reviewWorker } from './modules/reviews/reviews.worker.js';
+import { automationEngine } from './modules/automation/automation.engine.js';
 
 import { errorHandler } from './middleware/errorHandler.js';
 import { pool } from './config/db.js';
@@ -116,6 +118,8 @@ app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/billing', billingRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/automation', automationRoutes);
+app.use('/api/v1/jobs', automationRoutes);
 
 // Serve React Frontend in Production (single-server deployment)
 if (isProduction) {
@@ -140,6 +144,9 @@ const server = app.listen(PORT, () => {
 
   // Start background worker for automatic review analysis
   reviewWorker.start();
+
+  // Start Section 15 Automation & Background Jobs Engine
+  automationEngine.start();
 });
 
 export default app;

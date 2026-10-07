@@ -179,5 +179,11 @@ export const api = {
   getAdminAuditLogs: () => request('/admin/audit-logs'),
   getAdminPrompts: () => request('/admin/prompts'),
   listAdminWorkspaces: () => request('/admin/workspaces'),
-  toggleWorkspaceStatus: (id) => request(`/admin/workspaces/${id}/toggle-status`, { method: 'PUT' })
+  toggleWorkspaceStatus: (id) => request(`/admin/workspaces/${id}/toggle-status`, { method: 'PUT' }),
+
+  // Automation & Background Jobs (Section 15)
+  getAutomationStatus: () => request('/automation/status'),
+  getJobHistory: (params = '') => request(`/automation/history${params}`),
+  triggerJobRun: (jobType, payload = {}) => request(`/automation/jobs/${jobType}/run`, { method: 'POST', body: JSON.stringify(payload) }),
+  triggerAllJobs: (payload = {}) => request('/automation/run-all', { method: 'POST', body: JSON.stringify(payload) })
 };

@@ -3,7 +3,7 @@ import {
   ShieldCheck, Server, Database, Activity, Cpu, Users, Building, 
   Clock, CheckCircle2, AlertTriangle, RefreshCw, Eye, Power, FileCode,
   QrCode, Edit3, Trash2, Globe, ThumbsUp, ExternalLink, Plus,
-  CreditCard, Receipt, Sliders, Zap, Download
+  CreditCard, Receipt, Sliders, Zap, Download, Play, RotateCw
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -16,6 +16,11 @@ export default function AdminPage() {
   const [campaigns, setCampaigns] = useState([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
   const [activeTab, setActiveTab] = useState('health'); // health, workspaces, billing, campaigns, jobs, prompts, audit
+
+  // Section 15 Automation & Background Jobs State
+  const [automationTelemetry, setAutomationTelemetry] = useState(null);
+  const [loadingAutomation, setLoadingAutomation] = useState(false);
+  const [runningJobType, setRunningJobType] = useState(null);
 
   // Billing Administration State
   const [billingOverview, setBillingOverview] = useState(null);
@@ -110,12 +115,53 @@ export default function AdminPage() {
     }
   };
 
+  const fetchAutomationData = async () => {
+    try {
+      setLoadingAutomation(true);
+      const res = await api.getAutomationStatus();
+      if (res.success) {
+        setAutomationTelemetry(res);
+      }
+    } catch (err) {
+      console.warn('Failed to load automation telemetry:', err);
+    } finally {
+      setLoadingAutomation(false);
+    }
+  };
+
+  const handleTriggerJob = async (jobType) => {
+    try {
+      setRunningJobType(jobType);
+      await api.triggerJobRun(jobType, { force: true });
+      await fetchAutomationData();
+    } catch (err) {
+      alert(`Job ${jobType} failed: ` + (err.message || 'Error'));
+    } finally {
+      setRunningJobType(null);
+    }
+  };
+
+  const handleTriggerAllJobs = async () => {
+    try {
+      setRunningJobType('all');
+      await api.triggerAllJobs();
+      await fetchAutomationData();
+    } catch (err) {
+      alert('Trigger all jobs failed: ' + (err.message || 'Error'));
+    } finally {
+      setRunningJobType(null);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'campaigns') {
       fetchCampaigns();
     }
     if (activeTab === 'billing') {
       fetchBillingOverview();
+    }
+    if (activeTab === 'jobs') {
+      fetchAutomationData();
     }
   }, [activeTab]);
 
@@ -827,43 +873,273 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Tab 3: Background Workers */}
+      {/* Tab 3: Background Workers & Section 15 Automation */}
       {activeTab === 'jobs' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">Scheduled Cron & Worker Job Runs</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold">
-                  <th className="pb-3">Job Type</th>
-                  <th className="pb-3">Status</th>
-                  <th className="pb-3">Items Processed</th>
-                  <th className="pb-3">Started At</th>
-                  <th className="pb-3">Completed At</th>
-                  <th className="pb-3">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {health?.recentJobs?.map((job) => (
-                  <tr key={job.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                    <td className="py-3 font-semibold text-slate-900 dark:text-white capitalize">
-                      {job.job_type.replace(/_/g, ' ')}
-                    </td>
-                    <td className="py-3">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-50 dark:bg-emerald-950 text-emerald-600">
-                        {job.status}
-                      </span>
-                    </td>
-                    <td className="py-3 text-slate-600 dark:text-slate-300">{job.items_processed}</td>
-                    <td className="py-3 text-slate-500">{new Date(job.started_at).toLocaleTimeString()}</td>
-                    <td className="py-3 text-slate-500">{job.completed_at ? new Date(job.completed_at).toLocaleTimeString() : 'In Progress'}</td>
-                    <td className="py-3 text-slate-400 font-mono text-[11px] truncate max-w-xs">
-                      {JSON.stringify(job.details)}
-                    </td>
+        <div className="space-y-6">
+          {/* Header Card */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5">
+                    <Zap className="w-3 h-3 text-indigo-500" /> SECTION 15 COMPLIANT
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Automation Engine Active
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                  Background Jobs & Automation Scheduler
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Autonomous background workers with 3x exponential backoff retries, atomic idempotency locks, rate limiting, and incident alerting.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  onClick={fetchAutomationData}
+                  disabled={loadingAutomation}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Refresh automation status and history"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 ${loadingAutomation ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+
+                <button
+                  onClick={handleTriggerAllJobs}
+                  disabled={runningJobType !== null}
+                  className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {runningJobType === 'all' ? (
+                    <>
+                      <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                      Running All 14 Jobs...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      Run Full 14-Job Sweep
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-100 dark:border-slate-800/80">
+              <div className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                <div className="text-[11px] font-medium text-slate-500">Registered Jobs</div>
+                <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                  {automationTelemetry?.automation?.totalRegisteredJobs || 14} <span className="text-xs font-normal text-slate-400">workers</span>
+                </div>
+              </div>
+              <div className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                <div className="text-[11px] font-medium text-slate-500">Active Executions</div>
+                <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5 flex items-center gap-1.5">
+                  {automationTelemetry?.automation?.activeExecutions?.length || 0}
+                  {automationTelemetry?.automation?.activeExecutions?.length > 0 && (
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                  )}
+                </div>
+              </div>
+              <div className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                <div className="text-[11px] font-medium text-slate-500">Retry Policy</div>
+                <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                  3x Backoff <span className="text-xs font-normal text-slate-400">idempotent</span>
+                </div>
+              </div>
+              <div className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                <div className="text-[11px] font-medium text-slate-500">Failure Alerting</div>
+                <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" /> Enabled
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 14 Registered Jobs Table */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Server className="w-4 h-4 text-indigo-600" />
+                  Section 15 Automated Workers Registry (14 Jobs)
+                </h4>
+                <p className="text-xs text-slate-400">Configured automation frequencies, backoff policies, and manual on-demand triggers</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold">
+                    <th className="pb-3">Job Name & Type</th>
+                    <th className="pb-3">Cadence</th>
+                    <th className="pb-3">Retry Policy</th>
+                    <th className="pb-3">Status</th>
+                    <th className="pb-3">Last Run</th>
+                    <th className="pb-3">Success / Fail</th>
+                    <th className="pb-3 text-right">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {(automationTelemetry?.automation?.jobs || [
+                    { jobType: 'google_review_sync', title: 'Google Review Synchronization', frequency: '15m', maxRetries: 3, lastStatus: 'idle' },
+                    { jobType: 'google_performance_sync', title: 'Google Performance Sync', frequency: '30m', maxRetries: 3, lastStatus: 'idle' },
+                    { jobType: 'keyword_rank_collection', title: 'Keyword Rank Collection', frequency: '6h', maxRetries: 3, lastStatus: 'idle' },
+                    { jobType: 'geogrid_rank_collection', title: 'Geo-Grid Rank Collection', frequency: '12h', maxRetries: 2, lastStatus: 'idle' },
+                    { jobType: 'competitor_snapshots', title: 'Competitor Intelligence Snapshots', frequency: '12h', maxRetries: 3, lastStatus: 'idle' },
+                    { jobType: 'review_classification', title: 'Review Topic & Sentiment Classification', frequency: '5m', maxRetries: 3, lastStatus: 'idle' },
+                    { jobType: 'ai_reply_generation', title: 'Contextual AI Reply Generation', frequency: '10m', maxRetries: 3, lastStatus: 'idle' },
+                    { jobType: 'auto_reply_execution', title: 'Auto-Reply Rules Execution', frequency: '5m', maxRetries: 2, lastStatus: 'idle' },
+                    { jobType: 'review_alerts', title: 'Review & Negative Sentiment Alerts', frequency: '5m', maxRetries: 3, lastStatus: 'idle' },
+                    { jobType: 'keyword_discovery_refresh', title: 'Keyword Discovery & Suggestion Refresh', frequency: '24h', maxRetries: 3, lastStatus: 'idle' },
+                    { jobType: 'seo_audit_refresh', title: 'Local SEO Audit & Tasks Refresh', frequency: '24h', maxRetries: 3, lastStatus: 'idle' },
+                    { jobType: 'monthly_report_generation', title: 'Executive Monthly Report Compilation', frequency: '24h', maxRetries: 3, lastStatus: 'idle' },
+                    { jobType: 'campaign_analytics_aggregation', title: 'Review Campaign Analytics Aggregation', frequency: '15m', maxRetries: 3, lastStatus: 'idle' },
+                    { jobType: 'data_cleanup_retention', title: 'System Data Retention & Cleanup', frequency: '24h', maxRetries: 2, lastStatus: 'idle' }
+                  ]).map((job) => {
+                    const isRunning = runningJobType === job.jobType || runningJobType === 'all';
+                    return (
+                      <tr key={job.jobType} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+                        <td className="py-3">
+                          <div className="font-semibold text-slate-900 dark:text-white text-xs">{job.title}</div>
+                          <div className="text-[10px] font-mono text-slate-400">{job.jobType}</div>
+                        </td>
+                        <td className="py-3">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                            Every {job.frequency}
+                          </span>
+                        </td>
+                        <td className="py-3 text-slate-500">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-900/50">
+                            {job.maxRetries}x Backoff
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            job.lastStatus === 'success' || job.lastStatus === 'completed'
+                              ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600'
+                              : job.lastStatus === 'failed'
+                              ? 'bg-rose-50 dark:bg-rose-950 text-rose-600'
+                              : job.lastStatus === 'running'
+                              ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                          }`}>
+                            {job.lastStatus || 'idle'}
+                          </span>
+                        </td>
+                        <td className="py-3 text-slate-500">
+                          {job.lastRunAt ? new Date(job.lastRunAt).toLocaleTimeString() : 'Scheduled'}
+                        </td>
+                        <td className="py-3 text-slate-600 dark:text-slate-300">
+                          <span className="text-emerald-600 font-semibold">{job.successCount || 0}</span> / <span className="text-rose-500 font-semibold">{job.failureCount || 0}</span>
+                        </td>
+                        <td className="py-3 text-right">
+                          <button
+                            onClick={() => handleTriggerJob(job.jobType)}
+                            disabled={isRunning}
+                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-lg text-[11px] font-semibold border border-indigo-200/50 dark:border-indigo-800/50 transition cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                          >
+                            {isRunning ? (
+                              <>
+                                <RotateCw className="w-3 h-3 animate-spin" />
+                                Running
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-3 h-3 fill-current" />
+                                Run Now
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Execution History & Audit Logs */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-emerald-600" />
+              Immutable Job Execution Logs (job_runs table)
+            </h4>
+
+            {(!automationTelemetry?.recentJobRuns || automationTelemetry.recentJobRuns.length === 0) ? (
+              <div className="py-8 text-center text-xs text-slate-400">
+                No recent execution runs logged yet. Click "Run Full 14-Job Sweep" above to initiate execution.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold">
+                      <th className="pb-3">Job Type</th>
+                      <th className="pb-3">Idempotency Key</th>
+                      <th className="pb-3">Status</th>
+                      <th className="pb-3">Retries</th>
+                      <th className="pb-3">Duration</th>
+                      <th className="pb-3">Processed</th>
+                      <th className="pb-3">Started At</th>
+                      <th className="pb-3">Completed At</th>
+                      <th className="pb-3">Result Details</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {automationTelemetry.recentJobRuns.map((run) => (
+                      <tr key={run.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                        <td className="py-3 font-semibold text-slate-900 dark:text-white capitalize">
+                          {run.job_type.replace(/_/g, ' ')}
+                        </td>
+                        <td className="py-3 text-[10px] font-mono text-slate-400 max-w-[130px] truncate" title={run.idempotency_key}>
+                          {run.idempotency_key}
+                        </td>
+                        <td className="py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            run.status === 'completed'
+                              ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600'
+                              : run.status === 'failed'
+                              ? 'bg-rose-50 dark:bg-rose-950 text-rose-600'
+                              : 'bg-amber-50 dark:bg-amber-950 text-amber-600'
+                          }`}>
+                            {run.status}
+                          </span>
+                        </td>
+                        <td className="py-3 text-slate-500 font-mono text-[11px]">
+                          {run.retry_count}/{run.max_retries}
+                        </td>
+                        <td className="py-3 text-slate-500 font-mono text-[11px]">
+                          {run.execution_time_ms ? `${run.execution_time_ms}ms` : '—'}
+                        </td>
+                        <td className="py-3 text-slate-600 dark:text-slate-300 font-semibold">
+                          {run.items_processed || 0}
+                        </td>
+                        <td className="py-3 text-slate-500">
+                          {run.started_at ? new Date(run.started_at).toLocaleTimeString() : '—'}
+                        </td>
+                        <td className="py-3 text-slate-500">
+                          {run.finished_at ? new Date(run.finished_at).toLocaleTimeString() : 'Running'}
+                        </td>
+                        <td className="py-3 text-slate-400 font-mono text-[11px] truncate max-w-xs">
+                          {run.error_message ? (
+                            <span className="text-rose-500">{run.error_message}</span>
+                          ) : (
+                            JSON.stringify(run.details || {})
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
