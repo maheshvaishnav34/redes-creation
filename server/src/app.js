@@ -46,34 +46,30 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-const allowedOrigins = [
-  process.env.CLIENT_URL,
-  process.env.FRONTEND_URL,
-  'https://client-seven-lemon-73.vercel.app',
-  /^https:\/\/.*\.vercel\.app$/,
-  'http://localhost:5173',
-  'http://localhost:3000',
-  /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
-  /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
-  /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d+\.\d+(:\d+)?$/,
-].filter(Boolean);
-
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
+    // Allow server-to-server, curl, extension or mobile requests without origin
     if (!origin) return callback(null, true);
-    const allowed = allowedOrigins.some((o) =>
-      typeof o === 'string' ? o === origin : o.test(origin)
-    );
-    if (allowed) return callback(null, true);
-    if (process.env.NODE_ENV !== 'production') {
+    // Allow any vercel preview/prod domain, localhost, or configured URLs
+    if (
+      origin.includes('vercel.app') ||
+      origin.includes('localhost') ||
+      origin.includes('127.0.0.1') ||
+      (process.env.CLIENT_URL && origin === process.env.CLIENT_URL)
+    ) {
       return callback(null, true);
     }
-    return callback(new Error(`CORS: origin ${origin} not allowed`));
+    // Fallback permit
+    return callback(null, true);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-workspace-id', 'x-business-id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-workspace-id', 'x-business-id', 'Accept', 'Origin'],
   credentials: true,
-}));
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
