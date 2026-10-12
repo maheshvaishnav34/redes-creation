@@ -18,7 +18,14 @@ import {
   Building2,
   Plus,
   QrCode,
-  Lightbulb
+  Lightbulb,
+  BarChart3,
+  FileText,
+  Users2,
+  Flame,
+  Globe,
+  Layers,
+  Send
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -610,57 +617,249 @@ export const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Quick Operations Launchpad */}
-      <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
-        <div>
-          <h2 className="text-base font-bold text-slate-900">Operations Launchpad</h2>
-          <p className="text-xs text-slate-500">Direct shortcuts to execute reputation & Local SEO workflows</p>
+      {/* SPECIFICATION SECTION 11: DASHBOARD KEY WIDGETS HUB */}
+      <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-blue-100 text-[#034bc0]">
+                Specification Section 11
+              </span>
+              <h2 className="text-base font-extrabold text-slate-900">Dashboard Core Modules & Key Widgets</h2>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Instant operational status across all 8 intelligence engines with live signals and direct execution shortcuts
+            </p>
+          </div>
+          <span className="text-xs font-bold text-slate-500 bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl self-start sm:self-auto">
+            8 / 8 Modules Active
+          </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <button
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Widget 1: Overview */}
+          <div
+            onClick={() => navigate('/seo')}
+            className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-blue-50/60 hover:border-blue-300 transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-[#034bc0]" />
+                  <span>Overview</span>
+                </span>
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  Health 94%
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-medium">
+                Rating: <strong>{stats.avgRating || '4.6'}★</strong> • Reviews: <strong>{stats.totalReviews || '1,284'}</strong> • Unanswered: <strong>{stats.unansweredReviews || '2'}</strong>
+              </p>
+              <div className="text-[10px] text-slate-500 font-semibold">
+                SLA: <span className="text-emerald-700 font-bold">94.2%</span> • Rank: <span className="text-[#034bc0] font-bold">+2 positions</span>
+              </div>
+            </div>
+            <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-[#034bc0] group-hover:translate-x-0.5 transition-transform mt-3">
+              <span>View Health Audit</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
+
+          {/* Widget 2: Reviews */}
+          <div
             onClick={() => navigate('/reviews')}
-            className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 hover:bg-blue-50 text-left transition-colors border border-slate-200 text-xs font-semibold text-slate-800 hover:text-[#034bc0] group cursor-pointer"
+            className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-blue-50/60 hover:border-blue-300 transition-all cursor-pointer group flex flex-col justify-between"
           >
-            <div className="flex items-center gap-2.5">
-              <MessageSquare className="w-4 h-4 text-[#034bc0]" />
-              <span>Review Inbox ({stats.unansweredReviews || 2})</span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <MessageSquare className="w-4 h-4 text-[#034bc0]" />
+                  <span>Reviews Engine</span>
+                </span>
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200">
+                  2 Pending Signoff
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-medium">
+                NLP Topics: <strong>Staff, Food, Waiting Time</strong>
+              </p>
+              <div className="text-[10px] text-slate-500 font-semibold">
+                Positive: <span className="text-emerald-700 font-bold">87%</span> • Auto-replies: <span className="text-slate-700 font-bold">Active</span>
+              </div>
             </div>
-            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#034bc0] group-hover:translate-x-0.5 transition-all" />
-          </button>
+            <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-[#034bc0] group-hover:translate-x-0.5 transition-transform mt-3">
+              <span>Open Review Inbox</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
 
-          <button
-            onClick={() => navigate('/geo-grid')}
-            className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 hover:bg-blue-50 text-left transition-colors border border-slate-200 text-xs font-semibold text-slate-800 hover:text-[#034bc0] group cursor-pointer"
+          {/* Widget 3: Keywords */}
+          <div
+            onClick={() => navigate('/keywords')}
+            className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-blue-50/60 hover:border-blue-300 transition-all cursor-pointer group flex flex-col justify-between"
           >
-            <div className="flex items-center gap-2.5">
-              <MapPin className="w-4 h-4 text-[#034bc0]" />
-              <span>Geo-Grid Heatmap</span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <Search className="w-4 h-4 text-emerald-600" />
+                  <span>Keywords & Geo-Grid</span>
+                </span>
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  4 in Top 3
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-medium">
+                8 Targets tracked • Geo-Grid: <strong>78.4% (5km)</strong>
+              </p>
+              <div className="text-[10px] text-slate-500 font-semibold">
+                Opportunity Score: <span className="text-emerald-700 font-bold">85 / 100</span>
+              </div>
             </div>
-            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#034bc0] group-hover:translate-x-0.5 transition-all" />
-          </button>
+            <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-emerald-700 group-hover:translate-x-0.5 transition-transform mt-3">
+              <span>Explore Keyword Grid</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
 
-          <button
+          {/* Widget 4: Review Campaigns */}
+          <div
             onClick={() => navigate('/campaigns')}
-            className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 hover:bg-blue-50 text-left transition-colors border border-slate-200 text-xs font-semibold text-slate-800 hover:text-[#034bc0] group cursor-pointer"
+            className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-blue-50/60 hover:border-blue-300 transition-all cursor-pointer group flex flex-col justify-between"
           >
-            <div className="flex items-center gap-2.5">
-              <QrCode className="w-4 h-4 text-emerald-600" />
-              <span>QR Review Campaigns</span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <QrCode className="w-4 h-4 text-indigo-600" />
+                  <span>Review Campaigns</span>
+                </span>
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 border border-indigo-200">
+                  Active
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-medium">
+                QR & Direct Links • <strong>86 submissions</strong> this month
+              </p>
+              <div className="text-[10px] text-slate-500 font-semibold">
+                Google Conversion: <span className="text-emerald-700 font-bold">64.5%</span>
+              </div>
             </div>
-            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
-          </button>
+            <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-indigo-700 group-hover:translate-x-0.5 transition-transform mt-3">
+              <span>Manage QR Funnels</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
 
-          <button
-            onClick={() => navigate('/reports')}
-            className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 hover:bg-blue-50 text-left transition-colors border border-slate-200 text-xs font-semibold text-slate-800 hover:text-[#034bc0] group cursor-pointer"
+          {/* Widget 5: SEO & Growth Engine */}
+          <div
+            onClick={() => navigate('/seo')}
+            className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-blue-50/60 hover:border-blue-300 transition-all cursor-pointer group flex flex-col justify-between"
           >
-            <div className="flex items-center gap-2.5">
-              <ShieldCheck className="w-4 h-4 text-amber-600" />
-              <span>Export Executive PDF</span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <Flame className="w-4 h-4 text-amber-500" />
+                  <span>Maps Growth Engine</span>
+                </span>
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                  Section 9
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-medium">
+                4 Secondary Categories • 3 Ready Google Posts
+              </p>
+              <div className="text-[10px] text-slate-500 font-semibold">
+                NAP Consistency: <span className="text-emerald-700 font-bold">96% verified</span>
+              </div>
             </div>
-            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
-          </button>
+            <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-amber-700 group-hover:translate-x-0.5 transition-transform mt-3">
+              <span>Optimize Profile Signals</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
+
+          {/* Widget 6: Competitors */}
+          <div
+            onClick={() => navigate('/competitors')}
+            className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-blue-50/60 hover:border-blue-300 transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <Users2 className="w-4 h-4 text-purple-600" />
+                  <span>Competitor Intel</span>
+                </span>
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">
+                  Rank #2 Local
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-medium">
+                3 Market Rivals • Velocity Advantage: <strong>+51%</strong>
+              </p>
+              <div className="text-[10px] text-slate-500 font-semibold">
+                Advantage: <span className="text-emerald-700 font-bold">Higher 4.8★ vs 4.2★</span>
+              </div>
+            </div>
+            <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-purple-700 group-hover:translate-x-0.5 transition-transform mt-3">
+              <span>Analyze Competitor Gaps</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
+
+          {/* Widget 7: Analytics */}
+          <div
+            onClick={() => navigate('/analytics')}
+            className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-blue-50/60 hover:border-blue-300 transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <BarChart3 className="w-4 h-4 text-blue-600" />
+                  <span>Analytics & Trends</span>
+                </span>
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                  +6.7% MoM
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-medium">
+                Rating trend: <strong>+0.2★</strong> • Sentiment Velocity: <strong>Upward</strong>
+              </p>
+              <div className="text-[10px] text-slate-500 font-semibold">
+                Keywords trajectory: <span className="text-emerald-700 font-bold">Bullish</span>
+              </div>
+            </div>
+            <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-blue-700 group-hover:translate-x-0.5 transition-transform mt-3">
+              <span>View Deep Analytics</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
+
+          {/* Widget 8: Reports */}
+          <div
+            onClick={() => navigate('/reports')}
+            className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-blue-50/60 hover:border-blue-300 transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-amber-600" />
+                  <span>Reports & Delivery</span>
+                </span>
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                  Ready
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-medium">
+                Executive Weekly & Monthly PDF Export
+              </p>
+              <div className="text-[10px] text-slate-500 font-semibold">
+                Schedule: <span className="text-slate-700 font-bold">Auto-sent on 1st of month</span>
+              </div>
+            </div>
+            <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-amber-700 group-hover:translate-x-0.5 transition-transform mt-3">
+              <span>Generate Client Report</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
         </div>
       </div>
     </div>

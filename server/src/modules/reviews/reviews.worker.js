@@ -132,11 +132,13 @@ class ReviewAnalysisWorker {
     const { reviewId, businessId, force } = job;
     console.log(`⚙️ [REVIEW_WORKER] Processing review analysis for ID: ${reviewId} (Business: ${businessId})`);
 
-    // 1. Fetch review and business context
+    // 1. Fetch review and full niche intelligence context
     const reviewRes = await query(
-      `SELECT r.*, bl.name as business_name, bl.industry_id
+      `SELECT r.*, bl.name as business_name, bl.industry_id, bl.subcategory_name, bl.city,
+              bp.services, bp.brand_voice, bp.prohibited_claims, bp.customer_intents
        FROM reviews r
        LEFT JOIN business_locations bl ON r.business_id = bl.id
+       LEFT JOIN business_profiles bp ON bl.id = bp.business_id
        WHERE r.id = $1`,
       [reviewId]
     );
@@ -160,13 +162,20 @@ class ReviewAnalysisWorker {
       [reviewId]
     );
 
-    // 3. Execute AI Analysis
+    // 3. Execute Niche-Aware AI Analysis
     try {
       const analysis = await analyzeReviewWithAI({
         reviewText: review.review_text,
         rating: review.rating,
         businessName: review.business_name || 'Business Location',
         businessCategory: review.industry_id || 'General Business',
+        industry: review.industry_id,
+        subCategory: review.subcategory_name,
+        services: review.services || [],
+        brandVoice: review.brand_voice,
+        prohibitedClaims: review.prohibited_claims || [],
+        customerIntent: review.customer_intents?.[0] || 'visit',
+        location: review.city,
         reviewerName: review.author_name
       });
 

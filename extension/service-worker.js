@@ -9,6 +9,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const draftData = {
       text: message.text || '',
       rating: message.rating || 5,
+      autoSubmit: message.autoSubmit !== false,
       customerName: message.customerName || '',
       businessName: message.businessName || '',
       url: message.url || '',

@@ -210,7 +210,7 @@ export const ReportsPage = () => {
 
                 {/* Top Keywords Table */}
                 <div className="mt-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-xs font-extrabold text-slate-900 block mb-2 uppercase tracking-wider">Measured Top Search Ranks:</span>
+                  <span className="text-xs font-extrabold text-slate-900 block mb-2 uppercase tracking-wider">Measured Top Search Ranks (Section 17.7):</span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                     {(summaryData.topPerformingKeywords || [
                       { keyword: 'primary service near me', rank: 1 },
@@ -225,7 +225,149 @@ export const ReportsPage = () => {
                     ))}
                   </div>
                 </div>
+
+                {/* Rating & Review Trend + Response Rate & SLAs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                      Rating & Review Trend (Section 17.2)
+                    </span>
+                    <p className="text-xs text-slate-600 font-medium">
+                      Trajectory: <strong className="text-emerald-700">{summaryData.ratingReviewTrend?.trajectory || '+0.2★ over prior cycle'}</strong>
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-xs text-slate-500 font-bold">Historical Trajectory:</span>
+                      <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-slate-800">
+                        {(summaryData.ratingReviewTrend?.historicalAvg || [4.5, 4.6, 4.7, 4.8]).map((val, idx) => (
+                          <span key={idx} className="px-2 py-0.5 bg-white border border-slate-200 rounded">
+                            {val}★
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                      Review Response SLA & Governance (Section 17.3)
+                    </span>
+                    <p className="text-xs text-slate-600 font-medium">
+                      Average Response Time: <strong className="text-slate-900">{summaryData.responseRateDetails?.averageResponseTimeHours || '3.2'} hours</strong>
+                    </p>
+                    <p className="text-xs text-slate-600 font-medium mt-1">
+                      Unanswered Reviews: <strong className="text-slate-900">{summaryData.responseRateDetails?.unansweredCount || 0} reviews</strong>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Top Praised Themes & Top Complaints */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                  <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-200">
+                    <span className="text-[11px] font-extrabold text-emerald-900 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Top Praised Themes (Section 17.5)
+                    </span>
+                    <div className="space-y-1.5">
+                      {(summaryData.topPraisedThemes || [
+                        { theme: 'Service Quality & Hospitality', mentions: 14, sentiment: '98% Positive' },
+                        { theme: 'Atmosphere & Cleanliness', mentions: 9, sentiment: '95% Positive' }
+                      ]).map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs bg-white p-2 rounded-lg border border-emerald-100">
+                          <span className="font-semibold text-slate-800">{item.theme}</span>
+                          <span className="text-emerald-700 font-bold text-[10px]">{item.sentiment} ({item.mentions} mentions)</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-200">
+                    <span className="text-[11px] font-extrabold text-amber-900 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> Top Complaints & Friction (Section 17.6)
+                    </span>
+                    <div className="space-y-1.5">
+                      {(summaryData.topComplaints || [
+                        { issue: 'Weekend Parking Congestion', mentions: 2, severity: 'Medium' },
+                        { issue: 'Peak Hour Table Waiting', mentions: 1, severity: 'Low' }
+                      ]).map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs bg-white p-2 rounded-lg border border-amber-100">
+                          <span className="font-semibold text-slate-800">{item.issue}</span>
+                          <span className="text-amber-700 font-bold text-[10px]">{item.severity} severity ({item.mentions} mentions)</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Geo-Grid Movement & Competitor Comparison */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                      Geo-Grid Movement & Visibility (Section 17.8)
+                    </span>
+                    <p className="text-xs text-slate-600">
+                      Average Local Grid Rank: <strong className="text-[#034bc0]">#{summaryData.geoGridMovement?.averageRank || '2.4'}</strong>
+                    </p>
+                    <p className="text-xs text-slate-600 mt-1">
+                      Share of Voice: <strong className="text-slate-900">{summaryData.geoGridMovement?.shareOfVoice || '82%'}</strong> across target radius.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                      Competitor Comparison (Section 17.9)
+                    </span>
+                    <div className="space-y-1 mt-1.5">
+                      {(summaryData.competitorComparison || [
+                        { name: 'Monitored Rival A', rating: '4.4', reviewCount: 210, gap: '+0.4★ advantage' }
+                      ]).map((comp, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-[11px] text-slate-700 bg-white p-1.5 rounded border border-slate-200">
+                          <span className="font-medium truncate max-w-[140px]">{comp.name}</span>
+                          <span className="font-bold text-emerald-700">{comp.gap}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* SEO Health Score & Action Items Completed/Pending */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                      Local SEO Health Score (Section 17.10)
+                    </span>
+                    <div className="grid grid-cols-3 gap-2 mt-2 text-center">
+                      <div className="p-2 bg-white rounded border border-slate-200">
+                        <span className="text-[10px] text-slate-500 font-bold block">GBP Score</span>
+                        <span className="text-xs font-black text-indigo-700">{summaryData.seoHealth?.gbpScore || 92}/100</span>
+                      </div>
+                      <div className="p-2 bg-white rounded border border-slate-200">
+                        <span className="text-[10px] text-slate-500 font-bold block">Local Signals</span>
+                        <span className="text-xs font-black text-blue-700">{summaryData.seoHealth?.localSignalsScore || 78}/100</span>
+                      </div>
+                      <div className="p-2 bg-white rounded border border-slate-200">
+                        <span className="text-[10px] text-slate-500 font-bold block">Review Score</span>
+                        <span className="text-xs font-black text-emerald-700">{summaryData.seoHealth?.reviewScore || 89}/100</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                      Actions Completed & Pending (Section 17.11)
+                    </span>
+                    <div className="flex items-center gap-4 mt-2">
+                      <div className="p-3 bg-white rounded-lg border border-slate-200 flex-1 text-center">
+                        <span className="text-[10px] text-emerald-700 font-extrabold block uppercase">Completed</span>
+                        <span className="text-lg font-black text-slate-900">{summaryData.actionMetrics?.completed || 5} tasks</span>
+                      </div>
+                      <div className="p-3 bg-white rounded-lg border border-slate-200 flex-1 text-center">
+                        <span className="text-[10px] text-amber-700 font-extrabold block uppercase">Pending Review</span>
+                        <span className="text-lg font-black text-slate-900">{summaryData.actionMetrics?.pending || 2} tasks</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
+
 
               {/* SECTION 2: AI INTERPRETATION */}
               <div className="space-y-3">

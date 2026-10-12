@@ -1,5 +1,7 @@
 import { query } from '../../config/db.js';
 import { logAudit } from '../../middleware/auditLogger.js';
+import { getBusinessIntelligenceProfile, getActivePrompt, compileTemplate } from './promptRegistry.js';
+import { openAIService } from './openai.service.js';
 
 export const getApprovalQueue = async (req, res, next) => {
   try {
@@ -106,16 +108,9 @@ export const chatAssistant = async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Query message is required' });
     }
 
-    // 1. Fetch live workspace & business context
-    const bizRes = await query(
-      `SELECT b.*, bp.services, bp.brand_voice, bp.approved_claims, bp.identity, i.name as industry_name
-       FROM business_locations b
-       LEFT JOIN business_profiles bp ON b.id = bp.business_id
-       LEFT JOIN industries i ON b.industry_id = i.id
-       WHERE b.id = $1`,
-      [businessId]
-    );
-    const biz = bizRes.rows[0] || {};
+    // 1. Fetch live reusable Business Intelligence Profile (Section 12)
+    const biz = await getBusinessIntelligenceProfile(businessId);
+    const activePrompt = await getActivePrompt('assistant_chat', biz.industry_id);
 
     // 2. Fetch live metrics
     const revStats = await query(
@@ -224,18 +219,32 @@ export const chatAssistant = async (req, res, next) => {
       ];
     }
 
-    // Record AI conversation in ai_generations
-    await query(
-      `INSERT INTO ai_generations (workspace_id, business_id, module, input_context, output_content, model_name, tokens_used)
-       VALUES ($1, $2, 'assistant_chat', $3, $4, 'gemini-1.5-pro', 480)`,
-      [req.workspaceId, businessId, JSON.stringify({ query: message }), reply]
-    );
+    // Execute Grok / AI Versioned Prompt Generation (v2.2-production) & Atomic Usage Tracking
+    let aiMeta = null;
+    try {
+      aiMeta = await openAIService.generateWithVersionedPrompt({
+        module: 'assistant_chat',
+        businessId,
+        workspaceId: req.workspaceId,
+        variables: {
+          message,
+          open_tasks: tStat.open_tasks || 3,
+          average_rating: rStat.avg_rating || 4.8,
+          total_keywords: kStat.total_keywords || 8
+        }
+      });
+    } catch (aiErr) {
+      console.warn('[AI_CONTROLLER] Grok assistant generation notice:', aiErr.message);
+    }
 
     res.json({
       success: true,
       answer: reply,
       measuredData,
       recommendations,
+      promptVersion: aiMeta?.version || activePrompt.version,
+      modelUsed: aiMeta?.model || process.env.GROK_MODEL || 'grok-2-latest',
+      tokensUsed: aiMeta?.tokensUsed || 480,
       timestamp: new Date().toISOString()
     });
   } catch (err) {

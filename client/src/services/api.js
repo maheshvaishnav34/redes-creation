@@ -52,18 +52,34 @@ export const api = {
   createClient: (payload) => request('/workspaces/clients', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Business & Onboarding
-  getIndustries: () => request('/business/industries'),
-  listBusinesses: () => request('/business/list'),
-  getBusinessProfile: (id) => request(`/business/${id || 'current/profile'}`),
-  updateBusinessProfile: (id, payload) => request(`/business/${id}/profile`, { method: 'PUT', body: JSON.stringify(payload) }),
-  submitOnboarding: (payload) => request('/business/onboarding', { method: 'POST', body: JSON.stringify(payload) }),
+  getIndustries: () => request('/industries'),
+  listBusinesses: () => request('/businesses/list'),
+  getBusinessProfile: (id) => request(`/businesses/${id || 'current/profile'}`),
+  updateBusinessProfile: (id, payload) => request(`/businesses/${id}/profile`, { method: 'PUT', body: JSON.stringify(payload) }),
+  submitOnboarding: (payload) => request('/businesses/onboarding', { method: 'POST', body: JSON.stringify(payload) }),
+
+  // Multi-Location Architecture (Section 14 & 19)
+  listLocations: () => request('/locations'),
+  getLocationById: (id) => request(`/locations/${id}`),
+  createLocation: (payload) => request('/locations', { method: 'POST', body: JSON.stringify(payload) }),
+  updateLocation: (id, payload) => request(`/locations/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  getLocationPerformance: (id) => request(`/locations/${id}/performance`),
+  deleteLocation: (id) => request(`/locations/${id}`, { method: 'DELETE' }),
 
   // Google Business Profile
   getGoogleStatus: () => request('/google/status'),
+  getGoogleAuthUrl: () => request('/google/auth-url'),
   connectGoogle: (payload) => request('/google/connect', { method: 'POST', body: JSON.stringify(payload || {}) }),
   syncGoogleNow: () => request('/google/sync', { method: 'POST' }),
   disconnectGoogle: () => request('/google/disconnect', { method: 'POST' }),
   getGooglePerformance: () => request('/google/performance'),
+  discoverGoogleLocations: () => request('/google/discover-locations'),
+  mapGoogleLocation: (payload) => request('/google/map-location', { method: 'POST', body: JSON.stringify(payload) }),
+  listGooglePosts: () => request('/google/posts'),
+  createGooglePost: (payload) => request('/google/posts', { method: 'POST', body: JSON.stringify(payload) }),
+  getBusinessGoogleReviewUrl: (businessId) => request(businessId ? `/google/review-url/${businessId}` : '/google/review-url'),
+  updateBusinessGoogleReviewUrl: (businessId, payload) => request(businessId ? `/google/review-url/${businessId}` : '/google/review-url', { method: 'PUT', body: JSON.stringify(payload) }),
+  getPublicBusinessReviewUrl: (businessId) => request(businessId ? `/campaigns/public/review-url/${businessId}` : '/campaigns/public/review-url'),
 
   // Reviews & AI Replies
   listReviews: (params = '') => request(`/reviews${params}`),
@@ -131,6 +147,7 @@ export const api = {
   getLatestSeoAudit: () => request('/seo/audit'),
   runSeoAudit: () => request('/seo/audit/run', { method: 'POST' }),
   getReviewSeoIntelligence: () => request('/seo/review-intelligence'),
+  getMapsGrowthEngine: () => request('/seo/growth-engine'),
   listRecommendations: (params = '') => request(`/seo/recommendations${params}`),
   convertRecommendationToTask: (id, payload) => request(`/seo/recommendations/${id}/convert-to-task`, { method: 'POST', body: JSON.stringify(payload || {}) }),
   createTaskFromAudit: (id, payload) => request('/tasks', { method: 'POST', body: JSON.stringify(payload) }),
@@ -155,6 +172,9 @@ export const api = {
   listReports: () => request('/reports'),
   generateReport: (payload) => request('/reports/generate', { method: 'POST', body: JSON.stringify(payload) }),
   getReportById: (id) => request(`/reports/${id}`),
+  listReportSchedules: () => request('/reports/schedules'),
+  createReportSchedule: (payload) => request('/reports/schedules', { method: 'POST', body: JSON.stringify(payload) }),
+  deleteReportSchedule: (id) => request(`/reports/schedules/${id}`, { method: 'DELETE' }),
 
   // Billing
   getSubscription: () => request('/billing'),
@@ -180,6 +200,9 @@ export const api = {
   getAdminPrompts: () => request('/admin/prompts'),
   listAdminWorkspaces: () => request('/admin/workspaces'),
   toggleWorkspaceStatus: (id) => request(`/admin/workspaces/${id}/toggle-status`, { method: 'PUT' }),
+  listAdminLocations: () => request('/admin/locations'),
+  updateAdminLocation: (id, payload) => request(`/admin/locations/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteAdminLocation: (id) => request(`/admin/locations/${id}`, { method: 'DELETE' }),
 
   // Automation & Background Jobs (Section 15)
   getAutomationStatus: () => request('/automation/status'),

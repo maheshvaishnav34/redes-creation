@@ -248,3 +248,70 @@ html:not(.dark) {
 .cell-hover:hover {
   animation: pulse-subtle 0.2s ease-in-out forwards;
 }
+
+/* Exact Create Review Campaign Modal Styles (Image 2 Specification) */
+.campaign-dark-modal {
+  background-color: #0b1327 !important;
+  border: 1px solid #1e293b !important;
+  color: #ffffff !important;
+}
+
+.campaign-dark-modal .modal-title {
+  color: #ffffff !important;
+  font-family: 'Outfit', 'Inter', sans-serif !important;
+}
+
+.campaign-dark-modal .field-label {
+  color: #cbd5e1 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.campaign-dark-modal .dark-input {
+  background-color: #141f36 !important;
+  border: 1px solid #283754 !important;
+  color: #ffffff !important;
+  border-radius: 12px !important;
+}
+
+.campaign-dark-modal .dark-input::placeholder {
+  color: #64748b !important;
+}
+
+.campaign-dark-modal .dark-select {
+  background-color: #141f36 !important;
+  border: 1px solid #283754 !important;
+  color: #ffffff !important;
+  border-radius: 12px !important;
+}
+
+.campaign-dark-modal .dark-textarea {
+  background-color: #141f36 !important;
+  border: 2px solid #ffffff !important;
+  color: #ffffff !important;
+  border-radius: 14px !important;
+}
+
+.campaign-dark-modal .dark-textarea:focus {
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 0 1px #818cf8 !important;
+}
+
+.campaign-dark-modal .cancel-btn {
+  color: #94a3b8 !important;
+}
+
+.campaign-dark-modal .cancel-btn:hover {
+  color: #ffffff !important;
+}
+
+.campaign-dark-modal .submit-btn {
+  background-color: #4338ca !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 24px -4px rgba(67, 56, 202, 0.45) !important;
+}
+
+.campaign-dark-modal .submit-btn:hover {
+  background-color: #3730a3 !important;
+}
+

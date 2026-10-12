@@ -4,7 +4,10 @@ import {
   getAuditLogs,
   getPromptVersions,
   listAllWorkspaces,
-  toggleWorkspaceStatus
+  toggleWorkspaceStatus,
+  listAllLocations,
+  updateAdminLocation,
+  deleteAdminLocation
 } from './admin.controller.js';
 import { authenticate } from '../../middleware/auth.js';
 import { authorize } from '../../middleware/rbac.js';
@@ -18,5 +21,10 @@ router.get('/audit-logs', getAuditLogs);
 router.get('/prompts', getPromptVersions);
 router.get('/workspaces', listAllWorkspaces);
 router.put('/workspaces/:id/toggle-status', toggleWorkspaceStatus);
+
+// Locations Administration (Edit & Delete)
+router.get('/locations', listAllLocations);
+router.put('/locations/:id', updateAdminLocation);
+router.delete('/locations/:id', deleteAdminLocation);
 
 export default router;

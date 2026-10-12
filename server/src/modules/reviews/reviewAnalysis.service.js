@@ -50,20 +50,45 @@ Do not treat a 1-star review as automatically completely negative if the custome
 
 Never hallucinate information.`;
 
-function buildUserPrompt({ businessName, businessCategory, rating, reviewText }) {
-  return `Business:
-${businessName || 'Business Location'}
+function buildUserPrompt({
+  businessName,
+  businessCategory,
+  industry,
+  subCategory,
+  services,
+  customerIntent,
+  brandVoice,
+  prohibitedClaims,
+  location,
+  rating,
+  reviewText,
+  reviewerName
+}) {
+  return `Business Location:
+${businessName || 'Business Location'} ${location ? `(${location})` : ''}
 
-Business Category:
-${businessCategory || 'General Service'}
+Niche Taxonomy:
+* Industry: ${industry || businessCategory || 'General Service'}
+* Sub-Category: ${subCategory || 'Specialized Service'}
+* Services Offered: ${(services && services.length > 0) ? services.join(', ') : 'Specialized local solutions'}
+* Primary Customer Intent: ${customerIntent || 'Visit / Enquiry'}
 
-Review Rating:
-${rating}/5
+AI Brand Voice & Policy Constraints:
+* Brand Voice / Persona: ${brandVoice || 'Professional & Courteous'}
+* Regulatory & Prohibited Claims Policy: ${(prohibitedClaims && prohibitedClaims.length > 0) ? prohibitedClaims.join('; ') : 'No misleading statements or privacy violations'}
 
-Review:
-${reviewText || 'No review text provided.'}
+Customer Review Details:
+* Reviewer: ${reviewerName || 'Customer'}
+* Rating: ${rating}/5 stars
+* Review Text: ${reviewText || 'No review text provided.'}
 
-Analyze this review and return the required JSON.`;
+Instructions:
+Analyze this review through the lens of this exact business niche.
+When generating responseSuggestion and improvementRecommendation:
+1. Embody the specified Brand Voice and specialized niche vocabulary.
+2. Address specific services praised or complained about.
+3. STRICTLY observe prohibited claims and regulatory policies.
+4. Return ONLY valid JSON matching the required schema.`;
 }
 
 /**
@@ -441,12 +466,91 @@ function generateFallbackResponse({ businessName = 'Our Business', rating = 5, s
  * Tries Gemini API if key is present; gracefully falls back to deterministic Semantic Engine.
  * Implements exponential backoff retries.
  */
-export async function analyzeReviewWithAI({ reviewText, rating, businessName, businessCategory, reviewerName }) {
+export async function analyzeReviewWithAI({
+  reviewText,
+  rating,
+  businessName,
+  businessCategory,
+  industry,
+  subCategory,
+  services,
+  customerIntent,
+  brandVoice,
+  prohibitedClaims,
+  location,
+  reviewerName
+}) {
+  const grokKey = (process.env.GROK_API_KEY || process.env.XAI_API_KEY || process.env.OPENAI_API_KEY || '').trim();
+  const grokUrl = process.env.GROK_API_URL || 'https://api.x.ai/v1/chat/completions';
+  const grokModel = process.env.GROK_MODEL || process.env.OPENAI_MODEL || 'grok-2-latest';
+
+  // If Grok (xAI) or OpenAI API Key is available, invoke Grok API
+  const hasGrokKey = grokKey.length > 5 && !grokKey.includes('your_grok_api_key_here');
+  if (hasGrokKey) {
+    const userPrompt = buildUserPrompt({
+      businessName,
+      businessCategory,
+      industry,
+      subCategory,
+      services,
+      customerIntent,
+      brandVoice,
+      prohibitedClaims,
+      location,
+      rating,
+      reviewText,
+      reviewerName
+    });
+
+    try {
+      const response = await fetch(grokUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${grokKey}`
+        },
+        body: JSON.stringify({
+          model: grokModel,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: userPrompt }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.2
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const rawContent = data.choices?.[0]?.message?.content;
+        if (rawContent) {
+          const parsedJson = JSON.parse(rawContent);
+          return validateAndNormalizeAnalysis(parsedJson, { reviewText, rating, businessName });
+        }
+      }
+    } catch (grokErr) {
+      console.warn('[AI_ANALYSIS] Grok analysis notice:', grokErr.message);
+    }
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
 
   // If Gemini API Key is available, invoke Gemini with Section 5 Prompt
   if (apiKey) {
-    const userPrompt = buildUserPrompt({ businessName, businessCategory, rating, reviewText });
+    const userPrompt = buildUserPrompt({
+      businessName,
+      businessCategory,
+      industry,
+      subCategory,
+      services,
+      customerIntent,
+      brandVoice,
+      prohibitedClaims,
+      location,
+      rating,
+      reviewText,
+      reviewerName
+    });
     const maxRetries = 3;
     const delays = [0, 5000, 15000]; // Section 15: 5s, 15s
 

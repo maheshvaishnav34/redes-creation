@@ -93,6 +93,7 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/business-intelligence" element={<BusinessIntelligencePage />} />
           <Route path="/google" element={<GoogleProfilePage />} />
+          <Route path="/google/callback" element={<GoogleProfilePage />} />
           <Route path="/reviews" element={<ReviewsPage />} />
           <Route path="/campaigns" element={<ReviewCampaignsPage />} />
           <Route path="/review-campaigns" element={<ReviewCampaignsPage />} />

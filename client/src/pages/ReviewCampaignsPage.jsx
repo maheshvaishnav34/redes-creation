@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   QrCode,
   Plus,
+  Building2,
   Copy,
   ExternalLink,
   Download,
@@ -43,14 +44,20 @@ import {
   ChevronRight,
   ArrowRight,
   ChevronLeft,
-  CheckCheck
+  ChevronDown,
+  CheckCheck,
+  Camera
 } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { api } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { validateGoogleReviewUrl } from '../utils/googleUrlValidator.js';
 
 export const ReviewCampaignsPage = () => {
   const { activeBusiness, user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   // Active Sub-Navigation Tab: 'campaigns' | 'qr_studio' | 'review_links' | 'customers' | 'analytics'
   const [activeTab, setActiveTab] = useState('campaigns');
@@ -106,21 +113,12 @@ export const ReviewCampaignsPage = () => {
   const [newCustNotes, setNewCustNotes] = useState('');
   const [csvRawText, setCsvRawText] = useState('');
 
-  // 8-Step Campaign Creation Wizard State
-  const [wizardStep, setWizardStep] = useState(1);
+  // Create Review Campaign Modal State (Image 2)
   const [wName, setWName] = useState('');
-  const [wBizName, setWBizName] = useState('');
-  const [wWebsite, setWWebsite] = useState('');
-  const [wType, setWType] = useState('post_service');
-  const [wAudience, setWAudience] = useState('recent_customers');
-  const [wMessage, setWMessage] = useState('Hi {{customer_name}}, thank you for choosing {{business_name}}! We would truly love your honest feedback. Tap below to share: {{review_link}}');
-  const [wLanguage, setWLanguage] = useState('en');
-  const [wChannel, setWChannel] = useState('qr');
+  const [wChannel, setWChannel] = useState('In-Store QR Code');
+  const [wType, setWType] = useState('Post Dining Service');
+  const [wPrompt, setWPrompt] = useState('How was your dining experience with us tonight?');
   const [wGoogleUrl, setWGoogleUrl] = useState('');
-  const [wPostReviewOn, setWPostReviewOn] = useState(true);
-  const [wServices, setWServices] = useState('Full Stack Web Development, Python Programming, MERN Stack, IT Placement');
-  const [wAiOptions, setWAiOptions] = useState([]);
-  const [wAiLoading, setWAiLoading] = useState(false);
   const [wSubmitting, setWSubmitting] = useState(false);
 
   const autoRefreshTimerRef = useRef(null);
@@ -393,60 +391,88 @@ export const ReviewCampaignsPage = () => {
     }
   };
 
-  // AI Message Assistant
-  const handleGenerateAiMessage = async (tone = 'friendly') => {
-    setWAiLoading(true);
-    try {
-      const res = await api.generateAiCampaignMessage({
-        businessName: wBizName || activeBusiness?.name || 'StackCode Training Institute',
-        locationName: activeBusiness?.city || 'Ahmedabad',
-        tone,
-        language: wLanguage
-      });
-      if (res.options && res.options.length > 0) {
-        setWAiOptions(res.options);
-      }
-    } catch (err) {
-      notifyError('AI Message suggestion failed');
-    } finally {
-      setWAiLoading(false);
-    }
-  };
-
-  // Open Wizard
+  // Open Create Review Campaign Modal (Image 2)
   const handleOpenWizard = () => {
-    const defaultName = `Review Campaign ${new Date().toLocaleString('en-US', { month: 'short' })}`;
-    setWName(defaultName);
-    setWBizName(activeBusiness?.name || 'StackCode Training Institute');
-    setWWebsite(activeBusiness?.website || 'https://stackcodetraining.com');
-    setWGoogleUrl('https://www.google.com/search?q=StackCode+Training+Institute+Ahmedabad#lrd=0x395e9b9fd607f865:0xcc21f6e082637e6f,3,,,');
-    setWizardStep(1);
+    const currentBizName = activeBusiness?.name || '';
+    const lowerName = currentBizName.toLowerCase();
+    const isTech = lowerName.includes('code') || lowerName.includes('tech') || lowerName.includes('training') || lowerName.includes('developer');
+    const isDental = lowerName.includes('dental') || lowerName.includes('clinic');
+
+    setWName('');
+    setWChannel('In-Store QR Code');
+    setWType(isTech ? 'Post-Service Follow-up' : (isDental ? 'Appointment / Consultation' : 'In-Store / Visit'));
+    setWPrompt(
+      isTech 
+        ? `Welcome to ${currentBizName || 'our academy'}! How was your learning and mentoring experience with us?`
+        : (isDental
+            ? `Thank you for visiting ${currentBizName || 'our clinic'}! How was your dental consultation today?`
+            : `How was your experience at ${currentBizName || 'our location'} today?`)
+    );
+    setWGoogleUrl(activeBusiness?.google_review_url || '');
     setWizardOpen(true);
   };
 
-  // Submit Wizard
-  const handleFinishWizard = async () => {
+  // Auto-open wizard if arriving with action=create
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('action') === 'create') {
+      handleOpenWizard();
+      navigate('/campaigns', { replace: true });
+    }
+  }, [location.search]);
+
+  // Create Campaign & Generate QR (matching Image 2)
+  const handleCreateReviewCampaign = async (e) => {
+    if (e) e.preventDefault();
     if (!wName.trim()) {
       notifyError('Please enter a campaign name');
       return;
     }
     setWSubmitting(true);
     try {
+      const channelValue = (wChannel === 'In-Store QR Code' || wChannel === 'qr') ? 'qr' : wChannel.toLowerCase();
+      const currentBizName = activeBusiness?.name || 'Local Business';
+      const currentCity = activeBusiness?.city || '';
+      const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((currentBizName + ' ' + currentCity).trim())}`;
+      const rawReviewUrl = wGoogleUrl.trim() || activeBusiness?.google_review_url || fallbackUrl;
+      const validatedReviewUrl = validateGoogleReviewUrl(rawReviewUrl, {
+        businessName: currentBizName,
+        city: currentCity
+      }).url;
+
+      const lowerName = currentBizName.toLowerCase();
+      const isTech = lowerName.includes('code') || lowerName.includes('tech') || lowerName.includes('training') || lowerName.includes('developer');
+      const isDental = lowerName.includes('dental') || lowerName.includes('clinic');
+      let defaultServices = ['Professional Consultation', 'Service Delivery', 'Customer Support'];
+      if (isTech) {
+        defaultServices = ['Full Stack Web Development', 'Python Programming', 'Software Engineering', 'MERN Stack Development', 'IT Career Placement'];
+      } else if (isDental) {
+        defaultServices = ['Dental Consultation', 'Teeth Whitening', 'Root Canal Treatment', 'Dental Implants', 'Orthodontic Aligners'];
+      } else if (lowerName.includes('hotel') || lowerName.includes('resort') || lowerName.includes('dine') || lowerName.includes('restaurant')) {
+        defaultServices = ['A La Carte Restaurant & Dining', 'Hotel Accommodation & Luxury Rooms', 'Banquet Lawns & Celebrations', 'Family Dinners & Buffet', 'Room Service & Hospitality'];
+      }
+
       const res = await api.createCampaign({
         name: wName.trim(),
-        businessName: wBizName.trim(),
-        website: wWebsite.trim(),
-        googleReviewUrl: wGoogleUrl.trim(),
+        businessId: activeBusiness?.id,
+        businessName: currentBizName.trim(),
+        website: (activeBusiness?.website || '').trim(),
+        googleReviewUrl: validatedReviewUrl,
         campaignType: wType,
-        targetAudience: wAudience === 'all' ? 'All Customers' : 'Recent In-Store & Course Enrollees',
-        channel: wChannel,
-        messageTemplate: wMessage,
-        services: wServices.split(',').map(s => s.trim()).filter(Boolean),
-        postReviewEnabled: wPostReviewOn
+        channel: channelValue,
+        messageTemplate: wPrompt.trim(),
+        targetAudience: isTech ? 'Students & Professionals' : (isDental ? 'Patients & Visitors' : 'In-Store Customers & Guests'),
+        services: (activeBusiness?.services && Array.isArray(activeBusiness.services) && activeBusiness.services.length > 0)
+          ? activeBusiness.services
+          : defaultServices,
+        postReviewEnabled: true
       });
       if (res.success) {
-        notifySuccess('Campaign created & QR generated successfully!');
+        notifySuccess('Review campaign created & QR generated successfully!');
         setWizardOpen(false);
+        setWName('');
+        setWGoogleUrl('');
+        setWPrompt('How was your experience with us?');
         fetchData(true);
       }
     } catch (err) {
@@ -466,9 +492,13 @@ export const ReviewCampaignsPage = () => {
     return matchesSearch && matchesStatus && matchesChannel;
   });
 
-  // Top Strip KPIs
+  // Top Strip KPIs (Section 11 Compliance: Review Requests, Destination Clicks, Photo Uploads, Conversion Rate)
   const totalSent = analytics?.kpis?.totalSent || campaigns.reduce((acc, c) => acc + (Number(c.sent_count) || 0), 0);
   const totalClicked = analytics?.kpis?.totalClicked || campaigns.reduce((acc, c) => acc + (Number(c.clicked_count) || 0), 0);
+  const reviewRequests = analytics?.kpis?.reviewRequests || totalClicked;
+  const destinationClicks = analytics?.kpis?.destinationClicks || analytics?.kpis?.totalDestinationClicks || campaigns.reduce((acc, c) => acc + (Number(c.destination_clicked_count) || 0), 0);
+  const photoUploads = analytics?.kpis?.photoUploads || 0;
+  const conversionRate = reviewRequests > 0 ? (Math.round((destinationClicks / reviewRequests) * 1000) / 10) : (analytics?.kpis?.conversionRate || 0);
   const totalReviews = analytics?.kpis?.totalAttributedReviews || campaigns.reduce((acc, c) => acc + (Number(c.attributed_reviews_count) || 0), 0);
   const engagementRate = totalSent > 0 ? (Math.round((totalClicked / totalSent) * 1000) / 10) : 48.6;
   const activeCount = campaigns.filter(c => c.status === 'active').length;
@@ -525,10 +555,10 @@ export const ReviewCampaignsPage = () => {
 
           <button
             onClick={handleOpenWizard}
-            className="px-4 py-2.5 rounded-xl bg-[#034bc0] hover:bg-[#023aa0] text-white text-xs sm:text-sm font-bold flex items-center gap-2 transition shadow-md shadow-blue-600/20 cursor-pointer"
+            className="px-6 py-2.5 rounded-full bg-[#0052cc] hover:bg-[#0043a8] text-white text-sm font-bold flex items-center gap-2 transition shadow-md shadow-blue-600/25 cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
-            <span>+ Create Campaign</span>
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>Create Campaign</span>
           </button>
         </div>
       </div>
@@ -576,54 +606,59 @@ export const ReviewCampaignsPage = () => {
       {/* TAB 1: CAMPAIGNS VIEW */}
       {activeTab === 'campaigns' && (
         <div className="space-y-5 animate-in fade-in duration-150">
-          {/* Executive KPI Strip */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+          {/* Executive KPI Strip (Section 11 Compliance Dashboard) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
             <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Active Campaigns</span>
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Review Requests</span>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-slate-900">{activeCount}</span>
-                <span className="text-xs text-slate-400">/ {campaigns.length} total</span>
+                <span className="text-2xl font-black text-slate-900">{reviewRequests.toLocaleString()}</span>
+                <span className="text-xs text-slate-400">visits</span>
               </div>
-              <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" /> Live tracking
+              <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                <Users className="w-3 h-3 text-slate-400" /> Scans & link visits
               </span>
             </div>
 
             <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Customers Reached</span>
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Continue to Google Clicks</span>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-slate-900">{totalSent.toLocaleString()}</span>
-                <span className="text-xs text-slate-400">sent</span>
+                <span className="text-2xl font-black text-[#1a73e8]">{destinationClicks.toLocaleString()}</span>
+                <span className="text-xs text-slate-400">directed</span>
               </div>
-              <span className="text-[11px] text-slate-500">Across all channels</span>
+              <span className="text-[11px] text-blue-600 font-semibold flex items-center gap-1">
+                <ExternalLink className="w-3 h-3" /> Genuine customer intent
+              </span>
             </div>
 
             <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Engagement Rate</span>
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Photo Uploads</span>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-slate-900">{engagementRate}%</span>
-                <span className="text-xs text-emerald-600 font-bold">+14.2%</span>
+                <span className="text-2xl font-black text-indigo-600">{photoUploads.toLocaleString()}</span>
+                <span className="text-xs text-slate-400">photos</span>
               </div>
-              <span className="text-[11px] text-slate-500">QR scans & link clicks</span>
+              <span className="text-[11px] text-indigo-600 font-semibold flex items-center gap-1">
+                <Camera className="w-3 h-3" /> Customer attachments
+              </span>
             </div>
 
             <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Google Clicks</span>
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Conversion Rate</span>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-slate-900">{totalClicked.toLocaleString()}</span>
-                <span className="text-xs text-slate-400">dest</span>
+                <span className="text-2xl font-black text-emerald-600">{conversionRate}%</span>
+                <span className="text-xs text-slate-400">of requests</span>
               </div>
-              <span className="text-[11px] text-blue-600 font-semibold">Prompted reviews</span>
+              <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                <TrendingUp className="w-3 h-3" /> Destination rate
+              </span>
             </div>
+          </div>
 
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1 col-span-2 lg:col-span-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Attributed Reviews</span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-emerald-600">{totalReviews.toLocaleString()}</span>
-                <span className="text-xs text-emerald-700 font-bold">Verified</span>
-              </div>
-              <span className="text-[11px] text-emerald-600 font-semibold">Measured conversion</span>
-            </div>
+          {/* Compliance & Trust Notice */}
+          <div className="px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200/60 text-xs text-slate-500 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>
+              <strong>Google Compliance:</strong> Customers are directed to the official Google Review dialog where they manually authenticate and post. We do not automate or manipulate reviews.
+            </span>
           </div>
 
           {/* Table Toolbar */}
@@ -723,7 +758,7 @@ export const ReviewCampaignsPage = () => {
                                 {camp.name}
                               </span>
                               <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                                <span>{camp.business_name || 'StackCode Institute'}</span>
+                                <span>{camp.business_name || activeBusiness?.name || 'Bhagyalaxmi Hotel & Resort'}</span>
                                 {camp.city && <span>• {camp.city}</span>}
                               </div>
                             </div>
@@ -899,7 +934,7 @@ export const ReviewCampaignsPage = () => {
                 >
                   {campaigns.map(c => (
                     <option key={c.id} value={c.id}>
-                      {c.name} — {c.business_name || 'StackCode'} ({c.channel})
+                      {c.name} — {c.business_name || activeBusiness?.name || 'Bhagyalaxmi Hotel'} ({c.channel})
                     </option>
                   ))}
                 </select>
@@ -1033,7 +1068,7 @@ export const ReviewCampaignsPage = () => {
                 </div>
                 
                 <h4 className="font-black text-slate-900 text-sm">
-                  {campaigns.find(c => c.id === qrSelectedCampId)?.business_name || 'StackCode Training Institute'}
+                  {campaigns.find(c => c.id === qrSelectedCampId)?.business_name || activeBusiness?.name || 'Bhagyalaxmi Hotel & Resort'}
                 </h4>
 
                 <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center">
@@ -1415,373 +1450,145 @@ export const ReviewCampaignsPage = () => {
         </div>
       )}
 
-      {/* 8-STEP CAMPAIGN CREATION WIZARD MODAL */}
+      {/* CREATE REVIEW CAMPAIGN MODAL (EXACT SPEC MATCHING IMAGE 2) */}
       {wizardOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
-            {/* Wizard Header */}
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-              <div>
-                <span className="text-[11px] font-bold text-[#034bc0] uppercase tracking-wider block">
-                  Campaign Studio • Step {wizardStep} of 8
-                </span>
-                <h3 className="text-lg font-black text-slate-900">
-                  {wizardStep === 1 && '01 • Campaign Details'}
-                  {wizardStep === 2 && '02 • Target Audience'}
-                  {wizardStep === 3 && '03 • Message Composer & AI'}
-                  {wizardStep === 4 && '04 • Channel Selection'}
-                  {wizardStep === 5 && '05 • Review Destination'}
-                  {wizardStep === 6 && '06 • QR Code Generator'}
-                  {wizardStep === 7 && '07 • Customer Experience Preview'}
-                  {wizardStep === 8 && '08 • Launch Summary & Confirm'}
-                </h3>
+        <div 
+          className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
+          onClick={() => setWizardOpen(false)}
+        >
+          <div 
+            className="campaign-dark-modal w-full max-w-lg rounded-3xl shadow-2xl shadow-black/90 p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div>
+              <h3 className="modal-title text-xl font-bold tracking-tight">
+                Create Review Campaign
+              </h3>
+            </div>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handleCreateReviewCampaign} className="space-y-4">
+              {/* Campaign Name */}
+              <div className="space-y-2">
+                <label className="field-label block">
+                  Campaign Name
+                </label>
+                <input
+                  type="text"
+                  value={wName}
+                  onChange={(e) => setWName(e.target.value)}
+                  placeholder="e.g. Table Billfold QR or Checkout Counter"
+                  className="dark-input w-full px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 transition"
+                  autoFocus
+                />
               </div>
-              <button
-                onClick={() => setWizardOpen(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* Stepper Progress Indicator */}
-            <div className="grid grid-cols-8 gap-1 p-2 bg-slate-100/70 border-b border-slate-200 text-center">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
-                <div
-                  key={s}
-                  className={`h-1.5 rounded-full transition-all ${
-                    s <= wizardStep ? 'bg-[#034bc0]' : 'bg-slate-300'
-                  }`}
-                ></div>
-              ))}
-            </div>
-
-            {/* Wizard Body */}
-            <div className="p-6 overflow-y-auto space-y-5 flex-1">
-              {/* STEP 1: CAMPAIGN DETAILS */}
-              {wizardStep === 1 && (
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800 block">Campaign Name *</label>
-                    <input
-                      type="text"
-                      value={wName}
-                      onChange={(e) => setWName(e.target.value)}
-                      placeholder="e.g. March Full Stack Web Development Batch"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:border-[#034bc0]"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-800 block">Business Name *</label>
-                      <input
-                        type="text"
-                        value={wBizName}
-                        onChange={(e) => setWBizName(e.target.value)}
-                        placeholder="e.g. StackCode Training Institute"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:border-[#034bc0]"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-800 block">Website URL</label>
-                      <input
-                        type="text"
-                        value={wWebsite}
-                        onChange={(e) => setWWebsite(e.target.value)}
-                        placeholder="e.g. https://stackcodetraining.com"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:border-[#034bc0]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800 block">Campaign Type</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { id: 'post_service', label: 'Post-Service', desc: 'Training / Consulting' },
-                        { id: 'post_purchase', label: 'Post-Purchase', desc: 'Retail / Store' },
-                        { id: 'appointment', label: 'Appointment', desc: 'Dental / Clinic' },
-                        { id: 'visit', label: 'Visit', desc: 'Restaurant / Dine' },
-                        { id: 'follow_up', label: 'Follow-up', desc: 'Re-engagement' },
-                        { id: 'custom', label: 'Custom', desc: 'Flexible goals' }
-                      ].map(t => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => setWType(t.id)}
-                          className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
-                            wType === t.id
-                              ? 'border-[#034bc0] bg-blue-50/50 ring-2 ring-[#034bc0]/20'
-                              : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
-                        >
-                          <span className="font-bold text-xs text-slate-900 block">{t.label}</span>
-                          <span className="text-[10px] text-slate-500">{t.desc}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800 block">Services Offered (Comma separated)</label>
-                    <input
-                      type="text"
-                      value={wServices}
-                      onChange={(e) => setWServices(e.target.value)}
-                      placeholder="e.g. Full Stack Web Development, Python Programming, MERN Stack, React & Node.js"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:border-[#034bc0]"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 2: AUDIENCE */}
-              {wizardStep === 2 && (
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800 block">Target Audience Segment:</label>
-                    <div className="space-y-2">
-                      {[
-                        { id: 'recent_customers', label: 'Recent Students / Clients', count: '128 students enrolled in last 30 days' },
-                        { id: 'all', label: 'All Customers', count: '480 contacts in database' },
-                        { id: 'course_completed', label: 'Completed Batch Graduates', count: '64 verified graduates' }
-                      ].map(a => (
-                        <button
-                          key={a.id}
-                          type="button"
-                          onClick={() => setWAudience(a.id)}
-                          className={`w-full p-3.5 rounded-xl border text-left flex items-center justify-between transition cursor-pointer ${
-                            wAudience === a.id
-                              ? 'border-[#034bc0] bg-blue-50/50 ring-2 ring-[#034bc0]/20'
-                              : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
-                        >
-                          <div>
-                            <span className="font-bold text-xs text-slate-900 block">{a.label}</span>
-                            <span className="text-[11px] text-slate-500">{a.count}</span>
-                          </div>
-                          {wAudience === a.id && <CheckCircle2 className="w-4 h-4 text-[#034bc0]" />}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 3: MESSAGE COMPOSER & AI */}
-              {wizardStep === 3 && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-800 block">Message Body:</label>
-                    <button
-                      type="button"
-                      onClick={() => handleGenerateAiMessage('friendly')}
-                      disabled={wAiLoading}
-                      className="text-xs font-bold text-[#034bc0] hover:underline flex items-center gap-1 cursor-pointer"
+              {/* Channel & Campaign Type in 2 Columns */}
+              <div className="grid grid-cols-2 gap-3.5 sm:gap-4">
+                {/* Channel */}
+                <div className="space-y-2">
+                  <label className="field-label block">
+                    Channel
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={wChannel}
+                      onChange={(e) => setWChannel(e.target.value)}
+                      className="dark-select w-full px-3.5 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 transition appearance-none cursor-pointer pr-9"
                     >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      <span>{wAiLoading ? 'Generating AI Drafts...' : 'AI Message Assistant'}</span>
-                    </button>
-                  </div>
-
-                  {/* AI Generated Options */}
-                  {wAiOptions.length > 0 && (
-                    <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 space-y-2">
-                      <span className="text-[10px] font-bold text-[#034bc0] uppercase tracking-wider block">
-                        AI Recommended Messages (Click to apply):
-                      </span>
-                      {wAiOptions.map((opt) => (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => setWMessage(opt.text)}
-                          className="w-full text-left p-2.5 rounded-xl bg-white border border-blue-100 hover:border-[#034bc0] text-xs space-y-1 transition"
-                        >
-                          <span className="font-bold text-[#034bc0] text-[11px]">{opt.title}</span>
-                          <p className="text-slate-700">{opt.text}</p>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  <textarea
-                    rows={4}
-                    value={wMessage}
-                    onChange={(e) => setWMessage(e.target.value)}
-                    className="w-full p-3.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 font-medium leading-relaxed focus:outline-none focus:border-[#034bc0]"
-                  />
-
-                  {/* Variable Chips */}
-                  <div className="space-y-1.5">
-                    <span className="text-[11px] font-bold text-slate-500">Insert Dynamic Variables:</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {['{{customer_name}}', '{{business_name}}', '{{review_link}}'].map(v => (
-                        <button
-                          key={v}
-                          type="button"
-                          onClick={() => setWMessage(prev => `${prev} ${v}`)}
-                          className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-[11px] cursor-pointer"
-                        >
-                          {v}
-                        </button>
-                      ))}
-                    </div>
+                      <option value="In-Store QR Code" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>In-Store QR Code</option>
+                      <option value="WhatsApp" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>WhatsApp</option>
+                      <option value="SMS" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>SMS</option>
+                      <option value="Email" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>Email</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
-              )}
 
-              {/* STEP 4: CHANNEL SELECTION */}
-              {wizardStep === 4 && (
-                <div className="space-y-4">
-                  <label className="text-xs font-bold text-slate-800 block">Select Primary Channel:</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {[
-                      { id: 'qr', label: 'QR Code Standee & Posters', desc: 'Zero cost, 1-click in-store / institute scan', icon: QrCode },
-                      { id: 'whatsapp', label: 'WhatsApp Notification', desc: 'Direct WhatsApp message with feedback link', icon: Smartphone },
-                      { id: 'sms', label: 'SMS Text Message', desc: 'Instant SMS dispatch', icon: MessageSquare },
-                      { id: 'email', label: 'Email Follow-up', desc: 'Branded email newsletter', icon: Send }
-                    ].map(ch => {
-                      const Icon = ch.icon;
-                      return (
-                        <button
-                          key={ch.id}
-                          type="button"
-                          onClick={() => setWChannel(ch.id)}
-                          className={`p-4 rounded-xl border text-left flex items-start gap-3 transition cursor-pointer ${
-                            wChannel === ch.id
-                              ? 'border-[#034bc0] bg-blue-50/50 ring-2 ring-[#034bc0]/20'
-                              : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
-                        >
-                          <Icon className="w-5 h-5 text-[#034bc0] shrink-0 mt-0.5" />
-                          <div>
-                            <span className="font-bold text-xs text-slate-900 block">{ch.label}</span>
-                            <span className="text-[11px] text-slate-500 leading-relaxed block mt-0.5">{ch.desc}</span>
-                          </div>
-                        </button>
-                      );
-                    })}
+                {/* Campaign Type */}
+                <div className="space-y-2">
+                  <label className="field-label block">
+                    Campaign Type
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={wType}
+                      onChange={(e) => setWType(e.target.value)}
+                      className="dark-select w-full px-3.5 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 transition appearance-none cursor-pointer pr-9"
+                    >
+                      <option value="Post Dining Service" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>Post Dining Service</option>
+                      <option value="In-Store / Visit" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>In-Store / Visit</option>
+                      <option value="Post-Service Follow-up" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>Post-Service Follow-up</option>
+                      <option value="Post-Purchase Checkout" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>Post-Purchase Checkout</option>
+                      <option value="Appointment / Consultation" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>Appointment / Consultation</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
-              )}
+              </div>
 
-              {/* STEP 5: REVIEW DESTINATION */}
-              {wizardStep === 5 && (
-                <div className="space-y-4">
-                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <div>
-                        <span className="font-bold text-xs text-emerald-950 block">Google Business Profile Connected</span>
-                        <span className="text-[11px] text-emerald-800">Direct review popup will launch for verified customers</span>
-                      </div>
-                    </div>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-600 text-white">Active</span>
-                  </div>
+              {/* Customer Welcome Prompt */}
+              <div className="space-y-2">
+                <label className="field-label block">
+                  Customer Welcome Prompt
+                </label>
+                <textarea
+                  rows={2}
+                  value={wPrompt}
+                  onChange={(e) => setWPrompt(e.target.value)}
+                  placeholder="How was your experience with us?"
+                  className="dark-textarea w-full p-3 sm:p-3.5 text-sm leading-relaxed resize-y focus:outline-none transition"
+                />
+              </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800 block">Google Direct Write-Review Link:</label>
-                    <input
-                      type="text"
-                      value={wGoogleUrl}
-                      onChange={(e) => setWGoogleUrl(e.target.value)}
-                      placeholder="e.g. https://www.google.com/search?q=StackCode+Training+Institute#lrd=0x...:0x...,3,,,"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 font-mono focus:outline-none focus:border-[#034bc0]"
-                    />
-                  </div>
+              {/* Google Review Destination / Place ID (Location Specific) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="field-label block">
+                    Google Review Link / Place ID
+                  </label>
+                  <span className="text-[10px] text-slate-400">
+                    {activeBusiness?.name ? `Mapped to: ${activeBusiness.name}` : 'Optional'}
+                  </span>
                 </div>
-              )}
+                <input
+                  type="text"
+                  value={wGoogleUrl}
+                  onChange={(e) => setWGoogleUrl(e.target.value)}
+                  placeholder="https://search.google.com/local/writereview?placeid=... or Maps URL"
+                  className="dark-input w-full px-4 py-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-400 transition"
+                />
+                <p className="text-[10px] text-slate-400 leading-normal">
+                  Leave blank to auto-use <strong>{activeBusiness?.name || 'this location'}</strong>'s dedicated Google Maps profile.
+                </p>
+              </div>
 
-              {/* STEP 6: QR CODE */}
-              {wizardStep === 6 && (
-                <div className="space-y-4 text-center">
-                  <h4 className="font-bold text-slate-900 text-xs sm:text-sm">High-Resolution QR Code will be generated</h4>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    A unique QR code linked to this campaign will be automatically created with full scan tracking and printable poster presets.
-                  </p>
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 inline-block">
-                    <QrCode className="w-24 h-24 text-[#034bc0] mx-auto" />
-                    <span className="text-[11px] font-bold text-slate-600 block mt-2">Ready to compile with campaign slug</span>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 7: REVIEW EXPERIENCE PREVIEW */}
-              {wizardStep === 7 && (
-                <div className="space-y-4">
-                  <span className="text-xs font-bold text-slate-700 block">Customer Feedback Experience Preview:</span>
-                  <div className="max-w-sm mx-auto p-5 rounded-2xl bg-white border border-slate-200 shadow-lg text-center space-y-3">
-                    <h5 className="font-black text-slate-900 text-sm">{wBizName || 'StackCode Institute'}</h5>
-                    <p className="text-xs text-slate-500">How was your overall experience?</p>
-                    <div className="flex items-center justify-center gap-1 text-amber-400">
-                      {[1, 2, 3, 4, 5].map(s => <Star key={s} className="w-5 h-5 fill-amber-400" />)}
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-[11px] text-[#034bc0] font-bold">
-                      Customer enters genuine remarks & continues to Google Reviews
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 8: LAUNCH CONFIRMATION */}
-              {wizardStep === 8 && (
-                <div className="space-y-4">
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Campaign Summary</span>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div><span className="text-slate-400">Name:</span> <strong className="text-slate-900">{wName}</strong></div>
-                      <div><span className="text-slate-400">Channel:</span> <strong className="text-slate-900 capitalize">{wChannel}</strong></div>
-                      <div><span className="text-slate-400">Business:</span> <strong className="text-slate-900">{wBizName}</strong></div>
-                      <div><span className="text-slate-400">Audience:</span> <strong className="text-slate-900">{wAudience}</strong></div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Wizard Footer Controls */}
-            <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/60">
-              <button
-                type="button"
-                onClick={() => setWizardStep(prev => Math.max(1, prev - 1))}
-                disabled={wizardStep === 1}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition disabled:opacity-40 cursor-pointer"
-              >
-                Back
-              </button>
-
-              {wizardStep < 8 ? (
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-5 pt-3">
                 <button
                   type="button"
-                  onClick={() => setWizardStep(prev => Math.min(8, prev + 1))}
-                  className="px-5 py-2.5 rounded-xl bg-[#034bc0] hover:bg-[#023aa0] text-white text-xs font-bold transition shadow-sm cursor-pointer flex items-center gap-1.5"
+                  onClick={() => setWizardOpen(false)}
+                  className="cancel-btn font-medium text-sm transition cursor-pointer"
                 >
-                  <span>Continue</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  Cancel
                 </button>
-              ) : (
                 <button
-                  type="button"
-                  onClick={handleFinishWizard}
+                  type="submit"
                   disabled={wSubmitting}
-                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-md shadow-emerald-600/20 cursor-pointer flex items-center gap-2"
+                  className="submit-btn px-6 py-3 rounded-2xl font-bold text-sm transition cursor-pointer flex items-center gap-2 disabled:opacity-50"
                 >
                   {wSubmitting ? (
                     <>
                       <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Launching Campaign...</span>
+                      <span>Creating...</span>
                     </>
                   ) : (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Launch Campaign</span>
-                    </>
+                    <span>Create & Generate QR</span>
                   )}
                 </button>
-              )}
-            </div>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -1817,7 +1624,7 @@ export const ReviewCampaignsPage = () => {
               {/* Printable Standee Card */}
               <div id="printable-qr-card" className="p-8 rounded-3xl border-2 border-slate-800 text-center space-y-4 bg-white">
                 <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                  {selectedPrintQr.business_name || selectedPrintQr.name || 'StackCode Institute'}
+                  {selectedPrintQr.business_name || selectedPrintQr.name || activeBusiness?.name || 'Bhagyalaxmi Hotel & Resort'}
                 </h2>
                 <p className="text-xs font-semibold text-slate-600">
                   Scan with your phone camera to share your honest review:

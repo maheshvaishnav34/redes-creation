@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ShieldCheck, Server, Database, Activity, Cpu, Users, Building, 
+import {
+  ShieldCheck, Server, Database, Activity, Cpu, Users, Building,
   Clock, CheckCircle2, AlertTriangle, RefreshCw, Eye, Power, FileCode,
   QrCode, Edit3, Trash2, Globe, ThumbsUp, ExternalLink, Plus,
-  CreditCard, Receipt, Sliders, Zap, Download, Play, RotateCw
+  CreditCard, Receipt, Sliders, Zap, Download, Play, RotateCw,
+  MapPin, Search, X
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -15,7 +16,30 @@ export default function AdminPage() {
   const [prompts, setPrompts] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
-  const [activeTab, setActiveTab] = useState('health'); // health, workspaces, billing, campaigns, jobs, prompts, audit
+  const [activeTab, setActiveTab] = useState('health'); // health, workspaces, locations, billing, campaigns, jobs, prompts, audit
+
+  // Business Locations Management State
+  const [locations, setLocations] = useState([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [editLocationModalOpen, setEditLocationModalOpen] = useState(false);
+  const [createLocationModalOpen, setCreateLocationModalOpen] = useState(false);
+  const [editingLocation, setEditingLocation] = useState(null);
+  const [locSearch, setLocSearch] = useState('');
+  const [savingLocation, setSavingLocation] = useState(false);
+  const [locForm, setLocForm] = useState({
+    name: '',
+    industryId: 'restaurant',
+    address: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    phone: '',
+    website: '',
+    healthScore: 88,
+    placeId: '',
+    googleReviewUrl: '',
+    isPrimary: false
+  });
 
   // Section 15 Automation & Background Jobs State
   const [automationTelemetry, setAutomationTelemetry] = useState(null);
@@ -63,8 +87,33 @@ export default function AdminPage() {
   const [savingCamp, setSavingCamp] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam) setActiveTab(tabParam);
     fetchAdminData();
+    fetchLocations();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'locations') fetchLocations();
+    if (activeTab === 'campaigns') fetchCampaigns();
+    if (activeTab === 'billing') fetchBillingOverview();
+    if (activeTab === 'jobs') fetchAutomationData();
+  }, [activeTab]);
+
+  const fetchLocations = async () => {
+    try {
+      setLoadingLocations(true);
+      const res = await api.listAdminLocations();
+      if (res.success) {
+        setLocations(res.locations || []);
+      }
+    } catch (err) {
+      console.error('Failed to load admin locations:', err);
+    } finally {
+      setLoadingLocations(false);
+    }
+  };
 
   const fetchAdminData = async () => {
     try {
@@ -299,6 +348,106 @@ export default function AdminPage() {
     }
   };
 
+  const handleOpenEditLocation = (loc) => {
+    setEditingLocation(loc);
+    setLocForm({
+      name: loc.name || '',
+      industryId: loc.industry_id || 'restaurant',
+      address: loc.address || '',
+      city: loc.city || '',
+      state: loc.state || '',
+      postalCode: loc.postal_code || '',
+      phone: loc.phone || '',
+      website: loc.website || '',
+      healthScore: loc.health_score || 88,
+      placeId: loc.gbp_place_id || '',
+      googleReviewUrl: loc.google_review_url || '',
+      isPrimary: Boolean(loc.is_primary)
+    });
+    setEditLocationModalOpen(true);
+  };
+
+  const handleOpenCreateLocation = () => {
+    setLocForm({
+      name: '',
+      industryId: 'restaurant',
+      address: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      phone: '',
+      website: '',
+      healthScore: 88,
+      placeId: '',
+      googleReviewUrl: '',
+      isPrimary: false
+    });
+    setCreateLocationModalOpen(true);
+  };
+
+  const handleSaveLocation = async (e) => {
+    e.preventDefault();
+    if (!editingLocation) return;
+    setSavingLocation(true);
+    try {
+      const res = await api.updateAdminLocation(editingLocation.id, locForm);
+      if (res.success) {
+        setEditLocationModalOpen(false);
+        fetchLocations();
+        window.dispatchEvent(new Event('redes:business-switched'));
+      }
+    } catch (err) {
+      alert('Failed to update location: ' + (err.message || 'Error'));
+    } finally {
+      setSavingLocation(false);
+    }
+  };
+
+  const handleCreateLocation = async (e) => {
+    e.preventDefault();
+    setSavingLocation(true);
+    try {
+      const res = await api.createLocation({
+        name: locForm.name.trim(),
+        industryId: locForm.industryId,
+        address: locForm.address.trim(),
+        city: locForm.city.trim(),
+        state: locForm.state.trim(),
+        postalCode: locForm.postalCode.trim(),
+        phone: locForm.phone.trim(),
+        website: locForm.website.trim()
+      });
+      if (res.success) {
+        setCreateLocationModalOpen(false);
+        fetchLocations();
+        window.dispatchEvent(new Event('redes:business-switched'));
+      }
+    } catch (err) {
+      alert('Failed to create location: ' + (err.message || 'Error'));
+    } finally {
+      setSavingLocation(false);
+    }
+  };
+
+  const handleDeleteLocation = async (loc) => {
+    if (locations.length <= 1) {
+      alert('Cannot delete the only location in the system.');
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to permanently remove "${loc.name}"? This will delete all associated reviews, campaigns, and local SEO records.`)) {
+      return;
+    }
+    try {
+      const res = await api.deleteAdminLocation(loc.id);
+      if (res.success) {
+        setLocations(prev => prev.filter(l => l.id !== loc.id));
+        window.dispatchEvent(new Event('redes:business-switched'));
+      }
+    } catch (err) {
+      alert('Failed to delete location: ' + (err.message || 'Error'));
+    }
+  };
+
   if (loading && !health) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -363,6 +512,7 @@ export default function AdminPage() {
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
         {[
           { id: 'health', label: 'Cluster Diagnostics', icon: Activity },
+          { id: 'locations', label: `Locations (${locations.length})`, icon: MapPin },
           { id: 'workspaces', label: `Workspaces (${workspaces.length})`, icon: Building },
           { id: 'billing', label: 'Subscriptions & Invoices', icon: CreditCard },
           { id: 'campaigns', label: 'Review Campaigns', icon: QrCode },
@@ -373,11 +523,10 @@ export default function AdminPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
-              activeTab === tab.id
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer whitespace-nowrap ${activeTab === tab.id
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
-            }`}
+              }`}
           >
             <tab.icon className="w-4 h-4" />
             {tab.label}
@@ -392,7 +541,7 @@ export default function AdminPage() {
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Database className="w-4 h-4 text-indigo-600" /> Database Engine & Node Runtime
             </h3>
-            
+
             <div className="space-y-3 text-xs">
               <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40">
                 <span className="font-semibold text-slate-600 dark:text-slate-400">PostgreSQL Version</span>
@@ -470,20 +619,18 @@ export default function AdminPage() {
                     <td className="py-3 text-slate-600 dark:text-slate-300">{w.business_count || 1}</td>
                     <td className="py-3 text-slate-600 dark:text-slate-300">{w.user_count || 1}</td>
                     <td className="py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        w.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${w.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                        }`}>
                         {w.is_active ? 'Active' : 'Disabled'}
                       </span>
                     </td>
                     <td className="py-3 text-right">
                       <button
                         onClick={() => handleToggleWorkspace(w.id)}
-                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                          w.is_active
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${w.is_active
                             ? 'bg-rose-50 dark:bg-rose-950 text-rose-600 hover:bg-rose-100'
                             : 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600 hover:bg-emerald-100'
-                        }`}
+                          }`}
                       >
                         {w.is_active ? 'Disable' : 'Enable'}
                       </button>
@@ -492,6 +639,169 @@ export default function AdminPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Business Locations Management (EDIT & REMOVE CONTROLS) */}
+      {activeTab === 'locations' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-indigo-600" /> Multi-Location Enterprise Management
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Edit business details, update Google Place IDs & review URLs, or permanently remove business locations.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search locations..."
+                  value={locSearch}
+                  onChange={(e) => setLocSearch(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <button
+                onClick={fetchLocations}
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
+                title="Refresh Locations"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={handleOpenCreateLocation}
+                className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Location
+              </button>
+            </div>
+          </div>
+
+          {/* Locations Table */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs overflow-x-auto">
+            {loadingLocations ? (
+              <div className="py-12 flex flex-col items-center justify-center gap-3">
+                <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-xs text-slate-400">Loading business locations...</span>
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
+                    <th className="pb-3 font-semibold">Location / Business</th>
+                    <th className="pb-3 font-semibold">Category</th>
+                    <th className="pb-3 font-semibold">Address & City</th>
+                    <th className="pb-3 font-semibold">Google Place ID & Review Link</th>
+                    <th className="pb-3 font-semibold">Health</th>
+                    <th className="pb-3 font-semibold">Reviews</th>
+                    <th className="pb-3 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {locations
+                    .filter((l) => {
+                      if (!locSearch) return true;
+                      const q = locSearch.toLowerCase();
+                      return (
+                        l.name?.toLowerCase().includes(q) ||
+                        l.city?.toLowerCase().includes(q) ||
+                        l.address?.toLowerCase().includes(q) ||
+                        l.industry_id?.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((loc) => (
+                      <tr key={loc.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
+                        <td className="py-3.5 pr-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#034bc0] flex items-center justify-center font-bold text-xs shrink-0">
+                              <Building className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <span className="truncate max-w-[200px]">{loc.name}</span>
+                                {loc.is_primary && (
+                                  <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-600 border border-amber-200 text-[9px] font-bold">
+                                    PRIMARY
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-slate-400">{loc.workspace_name || 'Main Workspace'}</span>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 pr-3">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 capitalize">
+                            {loc.industry_id || 'General'}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 pr-3 text-slate-600 dark:text-slate-400">
+                          <div className="truncate max-w-[160px]">{loc.address || '—'}</div>
+                          <div className="text-[10px] text-slate-400">{loc.city ? `${loc.city}, India` : '—'}</div>
+                        </td>
+
+                        <td className="py-3.5 pr-3">
+                          <div className="space-y-0.5">
+                            <div className="font-mono text-[10px] text-slate-500 truncate max-w-[150px]">
+                              {loc.gbp_place_id || 'No Place ID'}
+                            </div>
+                            {loc.google_review_url ? (
+                              <a
+                                href={loc.google_review_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[10px] text-[#034bc0] hover:underline flex items-center gap-1 font-semibold"
+                              >
+                                Review Link <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-slate-400">No review URL</span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 pr-3">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600">
+                            {loc.health_score || 88}%
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 pr-3 text-slate-600 dark:text-slate-400">
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{loc.review_count || 0}</span> reviews
+                        </td>
+
+                        <td className="py-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleOpenEditLocation(loc)}
+                              className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#034bc0] font-semibold text-xs transition flex items-center gap-1 cursor-pointer"
+                              title="Edit Location"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" /> Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteLocation(loc)}
+                              className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold text-xs transition flex items-center gap-1 cursor-pointer"
+                              title="Remove Location"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" /> Remove
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}
@@ -632,11 +942,10 @@ export default function AdminPage() {
                             {sub.billing_cycle || 'monthly'}
                           </td>
                           <td className="py-3">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              sub.status === 'active'
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${sub.status === 'active'
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                 : 'bg-amber-50 text-amber-700 border border-amber-200'
-                            }`}>
+                              }`}>
                               {sub.status || 'active'}
                             </span>
                           </td>
@@ -722,11 +1031,10 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            inv.status === 'paid'
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${inv.status === 'paid'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : 'bg-amber-50 text-amber-700 border border-amber-200'
-                          }`}>
+                            }`}>
                             {inv.status}
                           </span>
                         </td>
@@ -835,11 +1143,10 @@ export default function AdminPage() {
                       <td className="py-3">
                         <button
                           onClick={() => handleToggleCampaignStatus(camp)}
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border transition cursor-pointer ${
-                            camp.status === 'active'
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border transition cursor-pointer ${camp.status === 'active'
                               ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600 border-emerald-300'
                               : 'bg-amber-50 dark:bg-amber-950 text-amber-600 border-amber-300'
-                          }`}
+                            }`}
                           title="Click to toggle Active / Paused"
                         >
                           {camp.status}
@@ -873,273 +1180,43 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Tab 3: Background Workers & Section 15 Automation */}
+      {/* Tab 3: Background Workers */}
       {activeTab === 'jobs' && (
-        <div className="space-y-6">
-          {/* Header Card */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5">
-                    <Zap className="w-3 h-3 text-indigo-500" /> SECTION 15 COMPLIANT
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Automation Engine Active
-                  </span>
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                  Background Jobs & Automation Scheduler
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Autonomous background workers with 3x exponential backoff retries, atomic idempotency locks, rate limiting, and incident alerting.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2.5">
-                <button
-                  onClick={fetchAutomationData}
-                  disabled={loadingAutomation}
-                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  title="Refresh automation status and history"
-                >
-                  <RotateCw className={`w-3.5 h-3.5 ${loadingAutomation ? 'animate-spin' : ''}`} />
-                  Refresh
-                </button>
-
-                <button
-                  onClick={handleTriggerAllJobs}
-                  disabled={runningJobType !== null}
-                  className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {runningJobType === 'all' ? (
-                    <>
-                      <RotateCw className="w-3.5 h-3.5 animate-spin" />
-                      Running All 14 Jobs...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                      Run Full 14-Job Sweep
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-100 dark:border-slate-800/80">
-              <div className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                <div className="text-[11px] font-medium text-slate-500">Registered Jobs</div>
-                <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
-                  {automationTelemetry?.automation?.totalRegisteredJobs || 14} <span className="text-xs font-normal text-slate-400">workers</span>
-                </div>
-              </div>
-              <div className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                <div className="text-[11px] font-medium text-slate-500">Active Executions</div>
-                <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5 flex items-center gap-1.5">
-                  {automationTelemetry?.automation?.activeExecutions?.length || 0}
-                  {automationTelemetry?.automation?.activeExecutions?.length > 0 && (
-                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-                  )}
-                </div>
-              </div>
-              <div className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                <div className="text-[11px] font-medium text-slate-500">Retry Policy</div>
-                <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
-                  3x Backoff <span className="text-xs font-normal text-slate-400">idempotent</span>
-                </div>
-              </div>
-              <div className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                <div className="text-[11px] font-medium text-slate-500">Failure Alerting</div>
-                <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center gap-1">
-                  <CheckCircle2 className="w-4 h-4" /> Enabled
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 14 Registered Jobs Table */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Server className="w-4 h-4 text-indigo-600" />
-                  Section 15 Automated Workers Registry (14 Jobs)
-                </h4>
-                <p className="text-xs text-slate-400">Configured automation frequencies, backoff policies, and manual on-demand triggers</p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold">
-                    <th className="pb-3">Job Name & Type</th>
-                    <th className="pb-3">Cadence</th>
-                    <th className="pb-3">Retry Policy</th>
-                    <th className="pb-3">Status</th>
-                    <th className="pb-3">Last Run</th>
-                    <th className="pb-3">Success / Fail</th>
-                    <th className="pb-3 text-right">Action</th>
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+          <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">Scheduled Cron & Worker Job Runs</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold">
+                  <th className="pb-3">Job Type</th>
+                  <th className="pb-3">Status</th>
+                  <th className="pb-3">Items Processed</th>
+                  <th className="pb-3">Started At</th>
+                  <th className="pb-3">Completed At</th>
+                  <th className="pb-3">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {health?.recentJobs?.map((job) => (
+                  <tr key={job.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="py-3 font-semibold text-slate-900 dark:text-white capitalize">
+                      {job.job_type.replace(/_/g, ' ')}
+                    </td>
+                    <td className="py-3">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-50 dark:bg-emerald-950 text-emerald-600">
+                        {job.status}
+                      </span>
+                    </td>
+                    <td className="py-3 text-slate-600 dark:text-slate-300">{job.items_processed}</td>
+                    <td className="py-3 text-slate-500">{new Date(job.started_at).toLocaleTimeString()}</td>
+                    <td className="py-3 text-slate-500">{job.completed_at ? new Date(job.completed_at).toLocaleTimeString() : 'In Progress'}</td>
+                    <td className="py-3 text-slate-400 font-mono text-[11px] truncate max-w-xs">
+                      {JSON.stringify(job.details)}
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {(automationTelemetry?.automation?.jobs || [
-                    { jobType: 'google_review_sync', title: 'Google Review Synchronization', frequency: '15m', maxRetries: 3, lastStatus: 'idle' },
-                    { jobType: 'google_performance_sync', title: 'Google Performance Sync', frequency: '30m', maxRetries: 3, lastStatus: 'idle' },
-                    { jobType: 'keyword_rank_collection', title: 'Keyword Rank Collection', frequency: '6h', maxRetries: 3, lastStatus: 'idle' },
-                    { jobType: 'geogrid_rank_collection', title: 'Geo-Grid Rank Collection', frequency: '12h', maxRetries: 2, lastStatus: 'idle' },
-                    { jobType: 'competitor_snapshots', title: 'Competitor Intelligence Snapshots', frequency: '12h', maxRetries: 3, lastStatus: 'idle' },
-                    { jobType: 'review_classification', title: 'Review Topic & Sentiment Classification', frequency: '5m', maxRetries: 3, lastStatus: 'idle' },
-                    { jobType: 'ai_reply_generation', title: 'Contextual AI Reply Generation', frequency: '10m', maxRetries: 3, lastStatus: 'idle' },
-                    { jobType: 'auto_reply_execution', title: 'Auto-Reply Rules Execution', frequency: '5m', maxRetries: 2, lastStatus: 'idle' },
-                    { jobType: 'review_alerts', title: 'Review & Negative Sentiment Alerts', frequency: '5m', maxRetries: 3, lastStatus: 'idle' },
-                    { jobType: 'keyword_discovery_refresh', title: 'Keyword Discovery & Suggestion Refresh', frequency: '24h', maxRetries: 3, lastStatus: 'idle' },
-                    { jobType: 'seo_audit_refresh', title: 'Local SEO Audit & Tasks Refresh', frequency: '24h', maxRetries: 3, lastStatus: 'idle' },
-                    { jobType: 'monthly_report_generation', title: 'Executive Monthly Report Compilation', frequency: '24h', maxRetries: 3, lastStatus: 'idle' },
-                    { jobType: 'campaign_analytics_aggregation', title: 'Review Campaign Analytics Aggregation', frequency: '15m', maxRetries: 3, lastStatus: 'idle' },
-                    { jobType: 'data_cleanup_retention', title: 'System Data Retention & Cleanup', frequency: '24h', maxRetries: 2, lastStatus: 'idle' }
-                  ]).map((job) => {
-                    const isRunning = runningJobType === job.jobType || runningJobType === 'all';
-                    return (
-                      <tr key={job.jobType} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
-                        <td className="py-3">
-                          <div className="font-semibold text-slate-900 dark:text-white text-xs">{job.title}</div>
-                          <div className="text-[10px] font-mono text-slate-400">{job.jobType}</div>
-                        </td>
-                        <td className="py-3">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                            Every {job.frequency}
-                          </span>
-                        </td>
-                        <td className="py-3 text-slate-500">
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-900/50">
-                            {job.maxRetries}x Backoff
-                          </span>
-                        </td>
-                        <td className="py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            job.lastStatus === 'success' || job.lastStatus === 'completed'
-                              ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600'
-                              : job.lastStatus === 'failed'
-                              ? 'bg-rose-50 dark:bg-rose-950 text-rose-600'
-                              : job.lastStatus === 'running'
-                              ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                          }`}>
-                            {job.lastStatus || 'idle'}
-                          </span>
-                        </td>
-                        <td className="py-3 text-slate-500">
-                          {job.lastRunAt ? new Date(job.lastRunAt).toLocaleTimeString() : 'Scheduled'}
-                        </td>
-                        <td className="py-3 text-slate-600 dark:text-slate-300">
-                          <span className="text-emerald-600 font-semibold">{job.successCount || 0}</span> / <span className="text-rose-500 font-semibold">{job.failureCount || 0}</span>
-                        </td>
-                        <td className="py-3 text-right">
-                          <button
-                            onClick={() => handleTriggerJob(job.jobType)}
-                            disabled={isRunning}
-                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-lg text-[11px] font-semibold border border-indigo-200/50 dark:border-indigo-800/50 transition cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
-                          >
-                            {isRunning ? (
-                              <>
-                                <RotateCw className="w-3 h-3 animate-spin" />
-                                Running
-                              </>
-                            ) : (
-                              <>
-                                <Play className="w-3 h-3 fill-current" />
-                                Run Now
-                              </>
-                            )}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Execution History & Audit Logs */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-emerald-600" />
-              Immutable Job Execution Logs (job_runs table)
-            </h4>
-
-            {(!automationTelemetry?.recentJobRuns || automationTelemetry.recentJobRuns.length === 0) ? (
-              <div className="py-8 text-center text-xs text-slate-400">
-                No recent execution runs logged yet. Click "Run Full 14-Job Sweep" above to initiate execution.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold">
-                      <th className="pb-3">Job Type</th>
-                      <th className="pb-3">Idempotency Key</th>
-                      <th className="pb-3">Status</th>
-                      <th className="pb-3">Retries</th>
-                      <th className="pb-3">Duration</th>
-                      <th className="pb-3">Processed</th>
-                      <th className="pb-3">Started At</th>
-                      <th className="pb-3">Completed At</th>
-                      <th className="pb-3">Result Details</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {automationTelemetry.recentJobRuns.map((run) => (
-                      <tr key={run.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                        <td className="py-3 font-semibold text-slate-900 dark:text-white capitalize">
-                          {run.job_type.replace(/_/g, ' ')}
-                        </td>
-                        <td className="py-3 text-[10px] font-mono text-slate-400 max-w-[130px] truncate" title={run.idempotency_key}>
-                          {run.idempotency_key}
-                        </td>
-                        <td className="py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            run.status === 'completed'
-                              ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600'
-                              : run.status === 'failed'
-                              ? 'bg-rose-50 dark:bg-rose-950 text-rose-600'
-                              : 'bg-amber-50 dark:bg-amber-950 text-amber-600'
-                          }`}>
-                            {run.status}
-                          </span>
-                        </td>
-                        <td className="py-3 text-slate-500 font-mono text-[11px]">
-                          {run.retry_count}/{run.max_retries}
-                        </td>
-                        <td className="py-3 text-slate-500 font-mono text-[11px]">
-                          {run.execution_time_ms ? `${run.execution_time_ms}ms` : '—'}
-                        </td>
-                        <td className="py-3 text-slate-600 dark:text-slate-300 font-semibold">
-                          {run.items_processed || 0}
-                        </td>
-                        <td className="py-3 text-slate-500">
-                          {run.started_at ? new Date(run.started_at).toLocaleTimeString() : '—'}
-                        </td>
-                        <td className="py-3 text-slate-500">
-                          {run.finished_at ? new Date(run.finished_at).toLocaleTimeString() : 'Running'}
-                        </td>
-                        <td className="py-3 text-slate-400 font-mono text-[11px] truncate max-w-xs">
-                          {run.error_message ? (
-                            <span className="text-rose-500">{run.error_message}</span>
-                          ) : (
-                            JSON.stringify(run.details || {})
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -1283,9 +1360,8 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => setEditPostReview(!editPostReview)}
-                    className={`w-full py-2 rounded-xl font-bold transition cursor-pointer ${
-                      editPostReview ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600'
-                    }`}
+                    className={`w-full py-2 rounded-xl font-bold transition cursor-pointer ${editPostReview ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600'
+                      }`}
                   >
                     {editPostReview ? 'Enabled' : 'Disabled'}
                   </button>
@@ -1593,6 +1669,323 @@ export default function AdminPage() {
                   className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {savingInvoice ? 'Generating...' : 'Issue GST Invoice'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Edit Location Modal */}
+      {editLocationModalOpen && editingLocation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 text-slate-800 dark:text-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#034bc0] flex items-center justify-center font-bold">
+                  <Building className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-base">Edit Location: {editingLocation.name}</h3>
+                  <p className="text-xs text-slate-500">Update business details, Google links, and ranking parameters</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditLocationModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveLocation} className="space-y-4 pt-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Business Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={locForm.name}
+                  onChange={(e) => setLocForm({ ...locForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Industry / Taxonomy
+                  </label>
+                  <select
+                    value={locForm.industryId}
+                    onChange={(e) => setLocForm({ ...locForm, industryId: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
+                  >
+                    <option value="restaurant">Restaurant & Food Service</option>
+                    <option value="education_training">Education & Training Institute</option>
+                    <option value="dental">Dental & Healthcare Spa</option>
+                    <option value="healthcare">Medical & Healthcare</option>
+                    <option value="hospitality">Hotel, Resort & Hospitality</option>
+                    <option value="retail">Retail Store & Supermarket</option>
+                    <option value="it_software">IT, Software & Agency</option>
+                    <option value="salon">Salon, Beauty & Wellness</option>
+                    <option value="automotive">Automotive & Dealership</option>
+                    <option value="real_estate">Real Estate & Property</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Health Score (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={locForm.healthScore}
+                    onChange={(e) => setLocForm({ ...locForm, healthScore: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Street Address
+                  </label>
+                  <input
+                    type="text"
+                    value={locForm.address}
+                    onChange={(e) => setLocForm({ ...locForm, address: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    value={locForm.city}
+                    onChange={(e) => setLocForm({ ...locForm, city: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    value={locForm.phone}
+                    onChange={(e) => setLocForm({ ...locForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Official Website
+                  </label>
+                  <input
+                    type="url"
+                    value={locForm.website}
+                    onChange={(e) => setLocForm({ ...locForm, website: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Google Place ID
+                </label>
+                <input
+                  type="text"
+                  value={locForm.placeId}
+                  onChange={(e) => setLocForm({ ...locForm, placeId: e.target.value })}
+                  placeholder="e.g. ChIJZfgH1p-bXjkRb35jguD2Icw"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-mono text-[11px]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Google Direct Review URL
+                </label>
+                <input
+                  type="url"
+                  value={locForm.googleReviewUrl}
+                  onChange={(e) => setLocForm({ ...locForm, googleReviewUrl: e.target.value })}
+                  placeholder="https://search.google.com/local/writereview?placeid=..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-[11px]"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="adminIsPrimary"
+                  checked={locForm.isPrimary}
+                  onChange={(e) => setLocForm({ ...locForm, isPrimary: e.target.checked })}
+                  className="rounded text-indigo-600 focus:ring-indigo-500"
+                />
+                <label htmlFor="adminIsPrimary" className="font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                  Set as Primary Location for Workspace
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditLocationModalOpen(false)}
+                  className="px-4 py-2 rounded-xl font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingLocation}
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  {savingLocation ? 'Saving...' : 'Save Location'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Create Location Modal */}
+      {createLocationModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 text-slate-800 dark:text-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-base">Add New Business Location</h3>
+                  <p className="text-xs text-slate-500">Register a new enterprise business branch</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCreateLocationModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateLocation} className="space-y-4 pt-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Business Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. StackCode IT Academy Branch 2"
+                  value={locForm.name}
+                  onChange={(e) => setLocForm({ ...locForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Industry / Taxonomy
+                </label>
+                <select
+                  value={locForm.industryId}
+                  onChange={(e) => setLocForm({ ...locForm, industryId: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
+                >
+                  <option value="restaurant">Restaurant & Food Service</option>
+                  <option value="education_training">Education & Training Institute</option>
+                  <option value="dental">Dental & Healthcare Spa</option>
+                  <option value="healthcare">Medical & Healthcare</option>
+                  <option value="hospitality">Hotel, Resort & Hospitality</option>
+                  <option value="retail">Retail Store & Supermarket</option>
+                  <option value="it_software">IT, Software & Agency</option>
+                  <option value="salon">Salon, Beauty & Wellness</option>
+                  <option value="automotive">Automotive & Dealership</option>
+                  <option value="real_estate">Real Estate & Property</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Street Address
+                  </label>
+                  <input
+                    type="text"
+                    value={locForm.address}
+                    onChange={(e) => setLocForm({ ...locForm, address: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    value={locForm.city}
+                    onChange={(e) => setLocForm({ ...locForm, city: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    value={locForm.phone}
+                    onChange={(e) => setLocForm({ ...locForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Official Website
+                  </label>
+                  <input
+                    type="url"
+                    value={locForm.website}
+                    onChange={(e) => setLocForm({ ...locForm, website: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setCreateLocationModalOpen(false)}
+                  className="px-4 py-2 rounded-xl font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingLocation}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  {savingLocation ? 'Creating...' : 'Create Location'}
                 </button>
               </div>
             </form>

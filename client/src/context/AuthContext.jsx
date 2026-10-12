@@ -23,8 +23,18 @@ export const AuthProvider = ({ children }) => {
 
       const savedBizId = localStorage.getItem('redes_business_id');
       const found = data.businesses.find(b => b.id === savedBizId);
+      const defaultName = import.meta.env.VITE_BUSINESS_NAME;
+      const namedBiz = defaultName ? data.businesses.find(b => b.name?.toLowerCase().includes(defaultName.toLowerCase())) : null;
+      const primaryBiz = data.businesses.find(b => b.is_primary);
+
       if (found) {
         setActiveBusiness(found);
+      } else if (namedBiz) {
+        setActiveBusiness(namedBiz);
+        localStorage.setItem('redes_business_id', namedBiz.id);
+      } else if (primaryBiz) {
+        setActiveBusiness(primaryBiz);
+        localStorage.setItem('redes_business_id', primaryBiz.id);
       } else if (data.businesses.length > 0) {
         setActiveBusiness(data.businesses[0]);
         localStorage.setItem('redes_business_id', data.businesses[0].id);

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { query } from '../../config/db.js';
 import { logAudit } from '../../middleware/auditLogger.js';
+import { resolveBusinessGoogleReviewUrl } from '../../utils/googleUrlValidator.js';
 
 // In-memory OTP store: email -> { otp, expiresAt }
 const otpStore = new Map();
@@ -152,11 +153,25 @@ export const register = async (req, res, next) => {
 export const getMe = async (req, res, next) => {
   try {
     const bizRes = await query(
-      `SELECT id, name, industry_id, subcategory_id, is_primary, health_score, city
-       FROM business_locations
-       WHERE workspace_id = $1
-       ORDER BY is_primary DESC, created_at ASC`,
+      `SELECT b.id, b.name, b.industry_id, b.subcategory_id, b.is_primary, b.health_score, b.city,
+              b.address, b.website, b.phone, gl.gbp_location_id, gl.gbp_place_id,
+              (gl.id IS NOT NULL) as google_linked
+       FROM business_locations b
+       LEFT JOIN google_locations gl ON b.id = gl.business_id
+       WHERE b.workspace_id = $1
+       ORDER BY b.is_primary DESC, b.created_at ASC`,
       [req.user.workspace_id]
+    );
+
+    const businesses = await Promise.all(
+      bizRes.rows.map(async (b) => {
+        const resolved = await resolveBusinessGoogleReviewUrl(b.id);
+        return {
+          ...b,
+          google_review_url: resolved.reviewUrl,
+          gbp_place_id: resolved.googlePlaceId || b.gbp_place_id || null
+        };
+      })
     );
 
     res.json({
@@ -171,8 +186,8 @@ export const getMe = async (req, res, next) => {
         workspaceName: req.user.workspace_name,
         plan: req.user.plan
       },
-      businesses: bizRes.rows,
-      activeBusinessId: bizRes.rows[0]?.id || null
+      businesses,
+      activeBusinessId: businesses[0]?.id || null
     });
   } catch (err) {
     next(err);

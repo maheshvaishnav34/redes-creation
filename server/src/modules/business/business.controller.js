@@ -1,5 +1,7 @@
+import QRCode from 'qrcode';
 import { query } from '../../config/db.js';
 import { logAudit } from '../../middleware/auditLogger.js';
+import { validateGoogleReviewUrl } from '../../utils/googleUrlValidator.js';
 
 export const getIndustries = async (req, res, next) => {
   try {
@@ -74,8 +76,23 @@ export const updateBusinessProfile = async (req, res, next) => {
       identity, description, services, products, customer_personas,
       brand_voice, languages, approved_claims, restricted_claims,
       target_keywords, excluded_keywords, reply_rules, escalation_rules,
-      compliance_rules, knowledge_base
+      compliance_rules, knowledge_base,
+      industryId, subcategoryId, businessName, city
     } = req.body;
+
+    // 1. Sync industry, subcategory and location attributes to business_locations (Section 19 & 23)
+    if (industryId || subcategoryId || businessName || city) {
+      await query(
+        `UPDATE business_locations
+         SET industry_id = COALESCE($1, industry_id),
+             subcategory_id = COALESCE($2, subcategory_id),
+             name = COALESCE($3, name),
+             city = COALESCE($4, city),
+             updated_at = NOW()
+         WHERE id = $5 AND workspace_id = $6`,
+        [industryId, subcategoryId, businessName, city, businessId, req.workspaceId]
+      );
+    }
 
     // Check if profile exists
     const existing = await query(`SELECT id FROM business_profiles WHERE business_id = $1`, [businessId]);
@@ -155,7 +172,7 @@ export const updateBusinessProfile = async (req, res, next) => {
   }
 };
 
-// 12-Step Onboarding Engine
+// 12-Step Niche Intelligence Onboarding Engine
 export const submitOnboarding = async (req, res, next) => {
   try {
     const {
@@ -163,7 +180,8 @@ export const submitOnboarding = async (req, res, next) => {
       industryId, subcategoryId, businessModel,
       services, products, targetLocations, customerPersonas,
       brandVoice, aiLanguages, approvedClaims, restrictedClaims,
-      connectGoogle = false
+      customerIntents, serviceRadius = 15,
+      connectGoogle = true, googleLocationId, googleReviewUrl
     } = req.body;
 
     const finalBusinessName = (businessName && businessName.trim())
@@ -171,18 +189,62 @@ export const submitOnboarding = async (req, res, next) => {
       : (req.user?.workspace_name || req.body.workspaceName || 'My Business Location');
     const finalIndustryId = industryId || 'restaurant';
 
-    // 1. Create Business Location
+    // Fetch industry taxonomy & intelligence context
+    const indRes = await query(`SELECT * FROM industries WHERE id = $1`, [finalIndustryId]);
+    const industryData = indRes.rows[0] || {};
+
+    const subRes = subcategoryId
+      ? await query(`SELECT * FROM industry_subcategories WHERE id = $1`, [subcategoryId])
+      : { rows: [] };
+    const subcategoryData = subRes.rows[0] || {};
+
+    const finalCustomerIntents = customerIntents && customerIntents.length > 0
+      ? customerIntents
+      : (industryData.customer_intents || ['visit', 'call', 'enquiry']);
+
+    const finalAiPolicy = {
+      ...(industryData.ai_policy || {}),
+      brand_voice: brandVoice || industryData.default_tone || 'Professional',
+      prohibited_claims: [
+        ...(industryData.compliance_rules || []),
+        ...(restrictedClaims || [])
+      ]
+    };
+
+    const finalSeoRules = industryData.seo_rules || {};
+
+    // Check existing locations count to decide if this should be is_primary
+    const existingCountRes = await query(
+      `SELECT COUNT(*) as count FROM business_locations WHERE workspace_id = $1`,
+      [req.workspaceId]
+    );
+    const isFirstLocation = parseInt(existingCountRes.rows[0]?.count || 0, 10) === 0;
+
+    // 1. Create Business Location with Niche Parameters
     const bRes = await query(
       `INSERT INTO business_locations (
-         workspace_id, name, industry_id, subcategory_id, business_model,
+         workspace_id, name, industry_id, subcategory_id, subcategory_name, business_model,
          address, city, country, postal_code, phone, website, service_areas,
-         is_primary, health_score
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, TRUE, 85.00)
+         customer_intents, service_radius, is_primary, health_score
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 88.50)
        RETURNING *`,
       [
-        req.workspaceId, finalBusinessName, finalIndustryId, subcategoryId || null, businessModel || 'storefront',
-        address, city || 'Ahmedabad', country || 'India', postalCode, phone, website,
-        JSON.stringify(serviceAreas || targetLocations || [])
+        req.workspaceId,
+        finalBusinessName,
+        finalIndustryId,
+        subcategoryId || null,
+        subcategoryData.name || null,
+        businessModel || 'storefront',
+        address || 'City Center Main Road',
+        city || 'Ahmedabad',
+        country || 'India',
+        postalCode || '380054',
+        phone || '+91 79 4890 5500',
+        website || null,
+        JSON.stringify(serviceAreas || targetLocations || []),
+        JSON.stringify(finalCustomerIntents),
+        parseInt(serviceRadius) || 15,
+        isFirstLocation
       ]
     );
     const business = bRes.rows[0];
@@ -195,34 +257,39 @@ export const submitOnboarding = async (req, res, next) => {
     if (approvedClaims && approvedClaims.length > 0) score += 10;
     if (connectGoogle) score += 10;
 
-    // 2. Create Business Intelligence Profile
+    // 2. Create Business Intelligence Profile with Full Niche Context
     const profileRes = await query(
       `INSERT INTO business_profiles (
          business_id, identity, description, services, products, customer_personas,
-         brand_voice, languages, approved_claims, restricted_claims,
+         brand_voice, languages, approved_claims, restricted_claims, prohibited_claims,
+         customer_intents, ai_policy, seo_rules,
          reply_rules, escalation_rules, onboarding_completed, onboarding_score
        ) VALUES (
-         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
          '{"auto_reply_5_star": true, "auto_reply_4_star": true, "draft_3_star": true, "manual_approval_1_2_star": true}'::jsonb,
          '{"notify_manager_on_1_star": true, "require_approval_sensitive": true}'::jsonb,
-         TRUE, $11
+         TRUE, $15
        ) RETURNING *`,
       [
         business.id,
-        `${finalBusinessName} - ${finalIndustryId}`,
-        `${finalBusinessName} offers high-quality ${finalIndustryId} services in ${city || 'the local market'}.`,
-        JSON.stringify(services || ['Core Consultation', 'Primary Service']),
+        `${finalBusinessName} - ${subcategoryData.name || industryData.name || finalIndustryId}`,
+        `${finalBusinessName} is a premier ${subcategoryData.name || industryData.name || finalIndustryId} provider in ${city || 'Ahmedabad'} delivering specialized ${services?.[0] || 'solutions'}.`,
+        JSON.stringify(services && services.length > 0 ? services : (subcategoryData.suggested_services || ['Primary Consultation', 'Premium Service'])),
         JSON.stringify(products || []),
-        JSON.stringify(customerPersonas || ['Local Quality-Seekers']),
-        brandVoice || 'Professional',
+        JSON.stringify(customerPersonas || ['Discerning Local Clients', 'Quality Seekers']),
+        brandVoice || industryData.default_tone || 'Professional',
         JSON.stringify(aiLanguages || ['en']),
-        JSON.stringify(approvedClaims || [`Top rated service provider in ${city || 'the area'}`]),
+        JSON.stringify(approvedClaims || [`Top rated ${industryData.name || finalIndustryId} service in ${city || 'the region'}`]),
         JSON.stringify(restrictedClaims || []),
+        JSON.stringify(finalAiPolicy.prohibited_claims || []),
+        JSON.stringify(finalCustomerIntents),
+        JSON.stringify(finalAiPolicy),
+        JSON.stringify(finalSeoRules),
         score
       ]
     );
 
-    // 3. Auto-populate initial keywords based on industry & services!
+    // 3. Auto-populate Niche-Specific Keywords
     const kgRes = await query(
       `INSERT INTO keyword_groups (business_id, name, slug, color)
        VALUES ($1, 'Core Business Keywords', 'core-keywords', '#6366f1')
@@ -231,29 +298,146 @@ export const submitOnboarding = async (req, res, next) => {
     );
     const groupId = kgRes.rows[0].id;
 
+    const baseKeywords = (subcategoryData.suggested_keywords && subcategoryData.suggested_keywords.length > 0)
+      ? subcategoryData.suggested_keywords
+      : [
+          `best ${finalIndustryId} in ${city || 'city'}`,
+          `top ${services?.[0] || finalIndustryId} near me`,
+          `${finalIndustryId} specialist ${city || 'city'}`
+        ];
+
     const initialKeywords = [
       `${finalBusinessName.toLowerCase()}`,
-      `best ${finalIndustryId} in ${city || 'city'}`,
-      `top ${services?.[0] || finalIndustryId} near me`,
-      `${finalIndustryId} service ${city || 'local'}`
+      ...baseKeywords.slice(0, 4)
     ];
 
     for (let i = 0; i < initialKeywords.length; i++) {
       await query(
         `INSERT INTO keywords (business_id, group_id, keyword, intent, relevance, difficulty, search_volume, current_rank, is_primary)
-         VALUES ($1, $2, $3, 'local', 95, 30, 1500, $4, $5)`,
-        [business.id, groupId, initialKeywords[i], i + 2, i === 0]
+         VALUES ($1, $2, $3, $4, 95, 32, 1800, $5, $6)`,
+        [business.id, groupId, initialKeywords[i], finalCustomerIntents[0] || 'local', i + 2, i === 0]
       );
     }
 
-    // 4. Update subscription location counter
+    // 4. Validate & Resolve Isolated Google Review Destination for THIS location
+    const fallbackLocationSearch = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(finalBusinessName + ' ' + (city || ''))}`;
+    const rawGoogleInput = (googleReviewUrl && googleReviewUrl.trim()) ? googleReviewUrl.trim() : fallbackLocationSearch;
+    const validatedReview = validateGoogleReviewUrl(rawGoogleInput, {
+      businessName: finalBusinessName,
+      city: city || '',
+      address: address || ''
+    });
+
+    // 5. Auto-Connect & Map Isolated Google Business Profile Location
+    let connId;
+    const existingConn = await query(`SELECT id FROM google_connections WHERE workspace_id = $1`, [req.workspaceId]);
+    if (existingConn.rows.length > 0) {
+      connId = existingConn.rows[0].id;
+    } else {
+      const newConn = await query(
+        `INSERT INTO google_connections (workspace_id, account_email, account_name, status, sync_frequency, is_token_encrypted, last_sync_at)
+         VALUES ($1, $2, $3, 'connected', 'daily', TRUE, NOW())
+         RETURNING id`,
+        [req.workspaceId, req.user?.email || 'admin@google-business.com', `${finalBusinessName} GBP Account`]
+      );
+      connId = newConn.rows[0].id;
+    }
+
+    const gbpLocId = googleLocationId || `locations/gbp_${Date.now().toString(36)}`;
+    await query(
+      `INSERT INTO google_locations (
+         google_connection_id, business_id, gbp_location_id, gbp_place_id, location_name, address, phone,
+         website, is_verified, sync_status, categories, supported_services, last_synced_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, 'synced', $9, $10, NOW())
+       ON CONFLICT (business_id) DO UPDATE
+       SET location_name = EXCLUDED.location_name,
+           gbp_place_id = COALESCE(EXCLUDED.gbp_place_id, google_locations.gbp_place_id),
+           website = EXCLUDED.website,
+           sync_status = 'synced',
+           last_synced_at = NOW()`,
+      [
+        connId,
+        business.id,
+        gbpLocId,
+        validatedReview.placeId || null,
+        finalBusinessName,
+        address || `${city || 'Ahmedabad'}, India`,
+        phone || '+91 79 4890 5500',
+        validatedReview.url,
+        JSON.stringify([industryData.name || 'Local Business', subcategoryData.name || 'Specialty Service']),
+        JSON.stringify(services || subcategoryData.suggested_services || [])
+      ]
+    );
+
+    // 6. Auto-Create an Isolated Review Campaign & QR Code for THIS Location
+    const cleanName = finalBusinessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const campaignSlug = `${cleanName}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const reqOrigin = req.get('origin') || req.headers.origin;
+    const clientBaseUrl = (reqOrigin && reqOrigin.includes('localhost')) ? reqOrigin : (process.env.CLIENT_URL || 'http://localhost:5173');
+    const reviewLink = `${clientBaseUrl}/feedback/${campaignSlug}`;
+
+    let qrCodeData = null;
+    try {
+      qrCodeData = await QRCode.toDataURL(reviewLink, {
+        width: 320,
+        margin: 2,
+        color: {
+          dark: '#034bc0',
+          light: '#ffffff'
+        }
+      });
+    } catch (qrErr) {
+      console.warn('[ONBOARDING] QR generation warning:', qrErr.message);
+    }
+
+    const initialCampaignServices = (services && services.length > 0)
+      ? services
+      : (subcategoryData.suggested_services && subcategoryData.suggested_services.length > 0
+          ? subcategoryData.suggested_services
+          : ['Professional Consultation', 'Service Delivery', 'Customer Support']);
+
+    await query(
+      `INSERT INTO review_campaigns (
+         business_id, name, business_name, website, phone, services,
+         channel, message_template, target_audience,
+         google_review_url, post_review_enabled,
+         review_link, qr_code_data, status,
+         sent_count, clicked_count, feedback_started_count, destination_clicked_count, attributed_reviews_count
+       ) VALUES ($1, $2, $3, $4, $5, $6, 'qr', $7, 'All Customers & Guests', $8, TRUE, $9, $10, 'active', 0, 0, 0, 0, 0)`,
+      [
+        business.id,
+        `${finalBusinessName} Official Review Drive`,
+        finalBusinessName,
+        website || null,
+        phone || null,
+        JSON.stringify(initialCampaignServices),
+        `Welcome to ${finalBusinessName}! How was your experience with us?`,
+        validatedReview.url,
+        reviewLink,
+        qrCodeData
+      ]
+    );
+
+    // 7. Update subscription location counter
     await query(`UPDATE subscriptions SET current_locations = current_locations + 1 WHERE workspace_id = $1`, [req.workspaceId]);
 
-    await logAudit(req.workspaceId, req.user.id, 'ONBOARDING_COMPLETED', 'business_locations', business.id, { businessName, score });
+    await logAudit(req.workspaceId, req.user.id, 'ONBOARDING_COMPLETED', 'business_locations', business.id, {
+      businessName: finalBusinessName,
+      industry: finalIndustryId,
+      subcategory: subcategoryId,
+      businessModel,
+      score,
+      googleReviewUrl: validatedReview.url,
+      placeId: validatedReview.placeId || null
+    });
 
     res.status(201).json({
       success: true,
-      business,
+      business: {
+        ...business,
+        google_review_url: validatedReview.url,
+        gbp_place_id: validatedReview.placeId || null
+      },
       profile: profileRes.rows[0],
       completionScore: score
     });

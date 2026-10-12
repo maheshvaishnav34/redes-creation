@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Building2, Sparkles, Lock, Mail, ArrowRight, ShieldCheck, 
-  CheckCircle2, AlertCircle, Eye, EyeOff, UserCheck
+  CheckCircle2, AlertCircle, Eye, EyeOff
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,8 +10,8 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { login, user } = useAuth();
   
-  const [email, setEmail] = useState('client@saffronbistro.com');
-  const [password, setPassword] = useState('Password123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -29,21 +29,6 @@ export default function LoginPage() {
       setLoading(true);
       setError(null);
       await login(email.trim(), password);
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err.message || 'Login failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickLogin = async (userEmail, userPassword = 'Password123!') => {
-    try {
-      setLoading(true);
-      setError(null);
-      setEmail(userEmail);
-      setPassword(userPassword);
-      await login(userEmail.trim(), userPassword);
       navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'Login failed');
@@ -139,18 +124,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Quick Demo Access Bar */}
-          <div className="pt-5 mt-5 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('client@saffronbistro.com')}
-              className="w-full py-2.5 px-3 text-xs font-bold rounded-xl bg-blue-50 hover:bg-blue-100 text-[#034bc0] border border-blue-200 transition text-center cursor-pointer flex items-center justify-center gap-2"
-            >
-              <UserCheck className="w-4 h-4 text-[#034bc0]" />
-              <span>1-Click Instant Client Demo Sign In</span>
-            </button>
-          </div>
 
           <div className="text-center pt-4">
             <p className="text-xs text-slate-500">

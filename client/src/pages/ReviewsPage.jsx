@@ -35,17 +35,20 @@ export const ReviewsPage = () => {
   const [reanalyzingId, setReanalyzingId] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
 
-  // Filters
+  // Filters (Section 6)
   const [statusFilter, setStatusFilter] = useState('all'); // all, unanswered, replied
   const [starFilter, setStarFilter] = useState(null); // 1, 2, 3, 4, 5
   const [sentimentFilter, setSentimentFilter] = useState(null); // positive, mixed, neutral, negative
+  const [priorityFilter, setPriorityFilter] = useState('all'); // all, critical, high, medium, low
+  const [topicFilter, setTopicFilter] = useState('all'); // all, service, staff, product, quality, cleanliness, etc.
   const [searchQuery, setSearchQuery] = useState('');
+  const [showRulesMatrix, setShowRulesMatrix] = useState(false);
 
-  // AI Reply Generator Modal State
+  // AI Reply Generator Modal State (Section 7)
   const [activeModalReview, setActiveModalReview] = useState(null);
   const [aiOptions, setAiOptions] = useState([]);
   const [selectedOptionText, setSelectedOptionText] = useState('');
-  const [selectedTone, setSelectedTone] = useState('Warm & Hospitable');
+  const [selectedTone, setSelectedTone] = useState('Professional');
   const [safetyChecks, setSafetyChecks] = useState(null);
   const [generatingAi, setGeneratingAi] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -58,6 +61,8 @@ export const ReviewsPage = () => {
       if (statusFilter !== 'all') queryStr += `reply_status=${statusFilter}&`;
       if (starFilter) queryStr += `rating=${starFilter}&`;
       if (sentimentFilter) queryStr += `sentiment=${sentimentFilter}&`;
+      if (priorityFilter !== 'all') queryStr += `priority=${priorityFilter}&`;
+      if (topicFilter !== 'all') queryStr += `topic=${encodeURIComponent(topicFilter)}&`;
       if (searchQuery) queryStr += `search=${encodeURIComponent(searchQuery)}&`;
 
       const data = await api.listReviews(queryStr);
@@ -75,7 +80,7 @@ export const ReviewsPage = () => {
     const handleBizSwitch = () => fetchReviews();
     window.addEventListener('redes:business-switched', handleBizSwitch);
     return () => window.removeEventListener('redes:business-switched', handleBizSwitch);
-  }, [statusFilter, starFilter, sentimentFilter]);
+  }, [statusFilter, starFilter, sentimentFilter, priorityFilter, topicFilter]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -180,19 +185,111 @@ export const ReviewsPage = () => {
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-600 mt-1">
-            Real-time Google review sync, automatic sentiment, customer feedback synthesis, and policy-compliant AI replies.
+            Unified Google review inbox across all locations, dynamic sentiment & topic classification, and Section 7.1 Auto-Reply governance.
           </p>
         </div>
 
-        <button
-          onClick={handleSyncRecent}
-          disabled={syncing}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#034bc0] hover:bg-[#023aa0] text-white text-xs font-bold transition-all shadow-sm shrink-0 cursor-pointer disabled:opacity-70"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-          <span>{syncing ? 'Syncing & Analyzing...' : 'Sync Recent Reviews'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowRulesMatrix(prev => !prev)}
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer ${showRulesMatrix
+                ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-sm'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
+          >
+            <ShieldCheck className="w-4 h-4 text-amber-600" />
+            <span>Auto-Reply Rules (7.1)</span>
+          </button>
+
+          <button
+            onClick={handleSyncRecent}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#034bc0] hover:bg-[#023aa0] text-white text-xs font-bold transition-all shadow-sm shrink-0 cursor-pointer disabled:opacity-70"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+            <span>{syncing ? 'Syncing...' : 'Sync Recent Reviews'}</span>
+          </button>
+        </div>
       </div>
+
+      {/* Section 7.1 Auto-Reply Rules Guidance Card */}
+      {showRulesMatrix && (
+        <div className="p-5 rounded-2xl bg-amber-50/70 border border-amber-200 shadow-sm space-y-3 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-amber-700" />
+              <h3 className="text-sm font-extrabold text-amber-950 uppercase tracking-wide">
+                Section 7.1 Auto-Reply Engine Rules & Default Behavior Matrix
+              </h3>
+            </div>
+            <button onClick={() => setShowRulesMatrix(false)} className="text-amber-700 hover:text-amber-900 cursor-pointer">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 text-xs">
+            <div className="p-3 rounded-xl bg-white border border-amber-200/80 shadow-2xs">
+              <div className="flex items-center justify-between font-bold text-slate-900 mb-1">
+                <span>5★ Positive Reviews</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800 font-extrabold">Auto Reply Allowed</span>
+              </div>
+              <p className="text-slate-600 text-[11px] leading-relaxed">
+                Policy-checked warm AI response automatically published within SLA timeframe.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white border border-amber-200/80 shadow-2xs">
+              <div className="flex items-center justify-between font-bold text-slate-900 mb-1">
+                <span>4★ Positive Reviews</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800 font-extrabold">Auto Reply Allowed</span>
+              </div>
+              <p className="text-slate-600 text-[11px] leading-relaxed">
+                Appreciates praise, reinforces high-satisfaction points without repetitive templates.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white border border-amber-200/80 shadow-2xs">
+              <div className="flex items-center justify-between font-bold text-slate-900 mb-1">
+                <span>3★ Mixed Feedback</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-800 font-extrabold">AI Draft + Approval</span>
+              </div>
+              <p className="text-slate-600 text-[11px] leading-relaxed">
+                AI prepares empathetic draft; queued in Approval Queue for owner review before posting.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white border border-amber-200/80 shadow-2xs">
+              <div className="flex items-center justify-between font-bold text-slate-900 mb-1">
+                <span>1–2★ Complaints</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-rose-100 text-rose-800 font-extrabold">Manual Escalation</span>
+              </div>
+              <p className="text-slate-600 text-[11px] leading-relaxed">
+                Routed directly to Critical/High Priority escalation queue; requires manager approval.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white border border-amber-200/80 shadow-2xs">
+              <div className="flex items-center justify-between font-bold text-slate-900 mb-1">
+                <span>Legal / Safety Sensitive</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-100 text-purple-800 font-extrabold">Manual Review</span>
+              </div>
+              <p className="text-slate-600 text-[11px] leading-relaxed">
+                High-risk legal/safety triggers strictly bypass auto-reply for legal/medical review.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white border border-amber-200/80 shadow-2xs">
+              <div className="flex items-center justify-between font-bold text-slate-900 mb-1">
+                <span>Spam / Suspicious</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-extrabold">Human Review Queue</span>
+              </div>
+              <p className="text-slate-600 text-[11px] leading-relaxed">
+                Pattern-detected for human verification; never accuses customers publicly.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary Stat Pills */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -218,38 +315,35 @@ export const ReviewsPage = () => {
         </div>
       </div>
 
-      {/* Filter Toolbar */}
+      {/* Filter Toolbar (Section 6) */}
       <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Status Tabs */}
           <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold overflow-x-auto no-scrollbar w-full sm:w-auto">
             <button
               onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                statusFilter === 'all' 
-                  ? 'bg-[#034bc0] text-white font-bold shadow-xs' 
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${statusFilter === 'all'
+                  ? 'bg-[#034bc0] text-white font-bold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
               All Reviews ({summary.total_reviews || reviews.length})
             </button>
             <button
               onClick={() => setStatusFilter('unanswered')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                statusFilter === 'unanswered' 
-                  ? 'bg-[#034bc0] text-white font-bold shadow-xs' 
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${statusFilter === 'unanswered'
+                  ? 'bg-[#034bc0] text-white font-bold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
               Pending Reply ({summary.unanswered_count || 0})
             </button>
             <button
               onClick={() => setStatusFilter('replied')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                statusFilter === 'replied' 
-                  ? 'bg-[#034bc0] text-white font-bold shadow-xs' 
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${statusFilter === 'replied'
+                  ? 'bg-[#034bc0] text-white font-bold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
               Replied
             </button>
@@ -268,20 +362,17 @@ export const ReviewsPage = () => {
           </form>
         </div>
 
-        {/* Secondary Pill Filters: Stars & Sentiment */}
+        {/* Secondary Filters Strip: Stars, Sentiment & Priority */}
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
-          <span className="text-[11px] font-bold text-slate-500 uppercase mr-1">Filter By:</span>
-
-          {/* Star Rating Pills */}
+          <span className="text-[11px] font-bold text-slate-500 uppercase mr-1">Rating:</span>
           {[5, 4, 3, 2, 1].map((s) => (
             <button
               key={s}
               onClick={() => setStarFilter(starFilter === s ? null : s)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                starFilter === s
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${starFilter === s
                   ? 'bg-amber-500 text-white ring-2 ring-amber-400 shadow-xs'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
-              }`}
+                }`}
             >
               <span>{s}</span>
               <Star className="w-3 h-3 fill-current" />
@@ -290,26 +381,44 @@ export const ReviewsPage = () => {
 
           <div className="h-4 w-px bg-slate-200 mx-1"></div>
 
-          {/* Sentiment Pills */}
+          <span className="text-[11px] font-bold text-slate-500 uppercase mr-1">Sentiment:</span>
           {['positive', 'mixed', 'neutral', 'negative'].map((sent) => (
             <button
               key={sent}
               onClick={() => setSentimentFilter(sentimentFilter === sent ? null : sent)}
-              className={`px-3 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
-                sentimentFilter === sent
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${sentimentFilter === sent
                   ? 'bg-[#034bc0] text-white ring-2 ring-blue-300 shadow-xs'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
-              }`}
+                }`}
             >
               {sent}
             </button>
           ))}
 
-          {(starFilter || sentimentFilter || searchQuery) && (
+          <div className="h-4 w-px bg-slate-200 mx-1"></div>
+
+          {/* Section 6 Priority Filter */}
+          <span className="text-[11px] font-bold text-slate-500 uppercase mr-1">Priority:</span>
+          {['all', 'critical', 'high', 'medium', 'low'].map((p) => (
+            <button
+              key={p}
+              onClick={() => setPriorityFilter(p)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${priorityFilter === p
+                  ? p === 'critical' ? 'bg-rose-600 text-white shadow-xs' : p === 'high' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                }`}
+            >
+              {p}
+            </button>
+          ))}
+
+          {(starFilter || sentimentFilter || priorityFilter !== 'all' || topicFilter !== 'all' || searchQuery) && (
             <button
               onClick={() => {
                 setStarFilter(null);
                 setSentimentFilter(null);
+                setPriorityFilter('all');
+                setTopicFilter('all');
                 setSearchQuery('');
               }}
               className="text-xs text-rose-600 hover:text-rose-700 font-bold ml-auto flex items-center gap-1 cursor-pointer"
@@ -317,6 +426,23 @@ export const ReviewsPage = () => {
               <X className="w-3.5 h-3.5" /> Clear Filters
             </button>
           )}
+        </div>
+
+        {/* Section 6 Topics Filter Strip */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100">
+          <span className="text-[11px] font-bold text-slate-500 uppercase mr-1">Topic Theme:</span>
+          {['all', 'service', 'staff', 'food', 'cleanliness', 'speed', 'pricing', 'ambience', 'facilities', 'support'].map((t) => (
+            <button
+              key={t}
+              onClick={() => setTopicFilter(t)}
+              className={`px-2 py-0.5 rounded-md text-[11px] font-bold capitalize transition-all cursor-pointer ${topicFilter === t
+                  ? 'bg-indigo-600 text-white ring-1 ring-indigo-400'
+                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                }`}
+            >
+              {t === 'all' ? 'All Topics' : `#${t}`}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -345,13 +471,12 @@ export const ReviewsPage = () => {
             return (
               <div
                 key={rev.id}
-                className={`p-5 sm:p-6 rounded-2xl bg-white border transition-all shadow-xs hover:shadow-md ${
-                  rev.priority === 'critical' || rev.urgency === 'critical'
+                className={`p-5 sm:p-6 rounded-2xl bg-white border transition-all shadow-xs hover:shadow-md ${rev.priority === 'critical' || rev.urgency === 'critical'
                     ? 'border-rose-300 ring-2 ring-rose-100'
                     : rev.reply_status === 'pending_approval' || rev.urgency === 'high'
-                    ? 'border-amber-300 ring-2 ring-amber-100'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
+                      ? 'border-amber-300 ring-2 ring-amber-100'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
               >
                 {/* Card Header: Author, Rating, Status, Date */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -377,46 +502,64 @@ export const ReviewsPage = () => {
                   </div>
 
                   {/* Badges */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* Urgency Badge */}
-                    {rev.urgency && (
-                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase border shadow-xs ${
-                        rev.urgency === 'critical'
-                          ? 'bg-rose-100 text-rose-800 border-rose-300'
-                          : rev.urgency === 'high'
+                  {/* Section 6 & 7.1 Badges Strip */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {/* Priority Badge (Section 6) */}
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border shadow-2xs ${(rev.priority || rev.urgency) === 'critical'
+                        ? 'bg-rose-100 text-rose-800 border-rose-300'
+                        : (rev.priority || rev.urgency) === 'high'
                           ? 'bg-orange-100 text-orange-800 border-orange-300'
-                          : rev.urgency === 'medium'
-                          ? 'bg-amber-100 text-amber-800 border-amber-300'
-                          : 'bg-slate-100 text-slate-700 border-slate-300'
+                          : (rev.priority || rev.urgency) === 'medium'
+                            ? 'bg-amber-100 text-amber-800 border-amber-300'
+                            : 'bg-slate-100 text-slate-700 border-slate-300'
                       }`}>
-                        Urgency: {rev.urgency}
-                      </span>
-                    )}
+                      Priority: {rev.priority || rev.urgency || 'low'}
+                    </span>
 
                     {/* Sentiment Badge */}
-                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold capitalize border shadow-xs flex items-center gap-1 ${
-                      rev.sentiment === 'positive'
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold capitalize border shadow-2xs flex items-center gap-1 ${rev.sentiment === 'positive'
                         ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                         : rev.sentiment === 'negative'
-                        ? 'bg-rose-100 text-rose-800 border-rose-300'
-                        : rev.sentiment === 'mixed'
-                        ? 'bg-amber-100 text-amber-800 border-amber-300'
-                        : 'bg-slate-100 text-slate-700 border-slate-300'
-                    }`}>
+                          ? 'bg-rose-100 text-rose-800 border-rose-300'
+                          : rev.sentiment === 'mixed'
+                            ? 'bg-amber-100 text-amber-800 border-amber-300'
+                            : 'bg-slate-100 text-slate-700 border-slate-300'
+                      }`}>
                       <span>
                         {rev.sentiment === 'positive' ? '🟢' : rev.sentiment === 'negative' ? '🔴' : rev.sentiment === 'mixed' ? '🟡' : '⚪'}
                       </span>
                       <span>{rev.sentiment} ({rev.sentiment_score ? Number(rev.sentiment_score).toFixed(2) : (ai.sentimentScore ? Number(ai.sentimentScore).toFixed(2) : '0.50')})</span>
                     </span>
 
+                    {/* Section 7.1 Auto-Reply Rule Status Indicator */}
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-2xs ${rev.is_sensitive
+                        ? 'bg-purple-100 text-purple-900 border-purple-300'
+                        : rev.is_suspicious || (rev.spam_score && rev.spam_score > 0.7)
+                          ? 'bg-slate-100 text-slate-800 border-slate-300'
+                          : rev.rating >= 4
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                            : rev.rating === 3
+                              ? 'bg-amber-50 text-amber-800 border-amber-300'
+                              : 'bg-rose-50 text-rose-800 border-rose-300'
+                      }`}>
+                      {rev.is_sensitive
+                        ? '⚖️ Rule 7.1: Legal/Safety Review'
+                        : rev.is_suspicious || (rev.spam_score && rev.spam_score > 0.7)
+                          ? '🛡️ Rule 7.1: Pattern Review Queue'
+                          : rev.rating >= 4
+                            ? '⚡ Rule 7.1: Auto Reply Allowed'
+                            : rev.rating === 3
+                              ? '📝 Rule 7.1: Approval Recommended'
+                              : '🚨 Rule 7.1: Manual Escalation'}
+                    </span>
+
                     {/* Reply Status Badge */}
-                    <span className={`px-3 py-1 rounded-full text-[11px] font-extrabold uppercase border shadow-xs ${
-                      rev.reply_status === 'replied' || rev.reply_status === 'auto_replied'
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border shadow-2xs ${rev.reply_status === 'replied' || rev.reply_status === 'auto_replied'
                         ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                         : rev.reply_status === 'pending_approval'
-                        ? 'bg-amber-100 text-amber-800 border-amber-300'
-                        : 'bg-slate-100 text-slate-700 border-slate-300'
-                    }`}>
+                          ? 'bg-amber-100 text-amber-800 border-amber-300'
+                          : 'bg-slate-100 text-slate-700 border-slate-300'
+                      }`}>
                       {rev.reply_status === 'auto_replied' ? '✓ Auto Replied' : rev.reply_status === 'replied' ? '✓ Replied' : 'Pending Action'}
                     </span>
                   </div>
@@ -677,22 +820,21 @@ export const ReviewsPage = () => {
               <p className="font-semibold italic">"{activeModalReview.review_text}"</p>
             </div>
 
-            {/* Tone Selector */}
+            {/* Tone Selector (Section 7 Specification) */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-800">Select Brand Tone:</label>
-              <div className="flex flex-wrap gap-2">
-                {['Warm & Hospitable', 'Professional', 'Empathetic & Polished', 'Hinglish Friendly', 'Concise'].map((t) => (
+              <label className="text-xs font-bold text-slate-800">Select Brand Tone Preset (Section 7):</label>
+              <div className="flex flex-wrap gap-1.5">
+                {['Professional', 'Friendly', 'Premium', 'Concise', 'Warm', 'Hindi', 'English', 'Hinglish'].map((t) => (
                   <button
                     key={t}
                     onClick={() => {
                       setSelectedTone(t);
                       handleOpenAiModal(activeModalReview);
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      selectedTone === t
-                        ? 'bg-[#034bc0] text-white shadow-xs'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${selectedTone === t
+                        ? 'bg-[#034bc0] text-white shadow-xs ring-1 ring-blue-500'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
-                    }`}
+                      }`}
                   >
                     {t}
                   </button>
@@ -721,11 +863,10 @@ export const ReviewsPage = () => {
                       <div
                         key={idx}
                         onClick={() => setSelectedOptionText(opt.text)}
-                        className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
-                          selectedOptionText === opt.text
+                        className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${selectedOptionText === opt.text
                             ? 'bg-blue-50/80 border-[#034bc0] ring-1 ring-[#034bc0]'
                             : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-bold text-slate-900">{opt.tone}</span>
@@ -766,9 +907,8 @@ export const ReviewsPage = () => {
             )}
 
             {feedbackMsg && (
-              <div className={`p-3 rounded-xl text-xs font-bold ${
-                feedbackMsg.includes('success') ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
-              }`}>
+              <div className={`p-3 rounded-xl text-xs font-bold ${feedbackMsg.includes('success') ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+                }`}>
                 {feedbackMsg}
               </div>
             )}

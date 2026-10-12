@@ -4,7 +4,8 @@ import {
   runNewAudit,
   listRecommendations,
   convertToTask,
-  getReviewSeoIntelligence
+  getReviewSeoIntelligence,
+  getGrowthEngineData
 } from './seo.controller.js';
 import { authenticate } from '../../middleware/auth.js';
 import { tenantIsolation } from '../../middleware/tenant.js';
@@ -14,9 +15,10 @@ const router = Router();
 
 router.use(authenticate, tenantIsolation);
 
-// Level 1: View - seo_audit.view ✅, recommendations.view ✅
+// Level 1: View - seo_audit.view ✅, recommendations.view ✅, growth_engine.view ✅
 router.get('/audit', getLatestAudit);
 router.get('/review-intelligence', getReviewSeoIntelligence);
+router.get('/growth-engine', getGrowthEngineData);
 router.get('/recommendations', listRecommendations);
 
 // Level 2: Execute Audit & Convert recommendation to task

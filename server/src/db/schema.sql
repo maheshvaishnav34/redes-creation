@@ -151,6 +151,24 @@ CREATE TABLE IF NOT EXISTS google_locations (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 8B. GOOGLE BUSINESS PROFILE LOCAL POSTS & UPDATES
+CREATE TABLE IF NOT EXISTS google_posts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+    business_id UUID REFERENCES business_locations(id) ON DELETE CASCADE,
+    google_location_id UUID REFERENCES google_locations(id) ON DELETE SET NULL,
+    gbp_post_id VARCHAR(255),
+    topic_type VARCHAR(50) DEFAULT 'STANDARD', -- STANDARD, EVENT, OFFER, ALERT
+    summary TEXT NOT NULL,
+    action_type VARCHAR(50), -- BOOK, ORDER, SHOP, LEARN_MORE, SIGN_UP, CALL
+    action_url TEXT,
+    media_url TEXT,
+    status VARCHAR(50) DEFAULT 'published', -- draft, scheduled, published, failed
+    published_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 9. REVIEWS & REVIEW INTELLIGENCE
 CREATE TABLE IF NOT EXISTS reviews (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -191,21 +209,7 @@ CREATE TABLE IF NOT EXISTS review_responses (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 11. REVIEW CAMPAIGNS (defined in section 28 below with full schema)
-
--- 12. CUSTOMER FEEDBACK LOGS (from Campaign QR/Link)
-CREATE TABLE IF NOT EXISTS review_feedback (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    campaign_id UUID REFERENCES review_campaigns(id) ON DELETE CASCADE,
-    business_id UUID REFERENCES business_locations(id) ON DELETE CASCADE,
-    customer_name VARCHAR(255),
-    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
-    service_experienced VARCHAR(255),
-    feedback_text TEXT,
-    themes_selected JSONB DEFAULT '[]'::jsonb,
-    proceeded_to_google BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- 11. REVIEW CAMPAIGNS & FEEDBACK (Defined in sections 28 & 29 below with full schema)
 
 -- 13. KEYWORD GROUPS & KEYWORDS
 CREATE TABLE IF NOT EXISTS keyword_groups (
@@ -393,6 +397,7 @@ CREATE TABLE IF NOT EXISTS reports (
 CREATE TABLE IF NOT EXISTS ai_prompt_versions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     module VARCHAR(100) NOT NULL,
+    industry_id VARCHAR(100) DEFAULT 'all',
     version VARCHAR(50) NOT NULL,
     system_prompt TEXT NOT NULL,
     user_prompt_template TEXT NOT NULL,
@@ -551,3 +556,85 @@ CREATE TABLE IF NOT EXISTS review_feedback (
     proceeded_to_google BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 30. BUSINESS SERVICES CATALOG (Section 13)
+CREATE TABLE IF NOT EXISTS business_services (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    business_id UUID REFERENCES business_locations(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    category VARCHAR(100),
+    description TEXT,
+    price_estimate VARCHAR(100),
+    is_gbp_synced BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 31. COMPETITOR SNAPSHOTS (Section 13)
+CREATE TABLE IF NOT EXISTS competitor_snapshots (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    competitor_id UUID REFERENCES competitors(id) ON DELETE CASCADE,
+    rating NUMERIC(3, 2),
+    review_count INTEGER,
+    visibility_score NUMERIC(5, 2),
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 32. PERFORMANCE DAILY AGGREGATES (Section 13)
+CREATE TABLE IF NOT EXISTS performance_daily (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    business_id UUID REFERENCES business_locations(id) ON DELETE CASCADE,
+    date DATE NOT NULL,
+    reviews_count INTEGER DEFAULT 0,
+    avg_rating NUMERIC(3, 2) DEFAULT 0.0,
+    sentiment_positive INTEGER DEFAULT 0,
+    sentiment_negative INTEGER DEFAULT 0,
+    searches_impressions INTEGER DEFAULT 0,
+    maps_directions INTEGER DEFAULT 0,
+    phone_calls INTEGER DEFAULT 0,
+    website_clicks INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(business_id, date)
+);
+
+-- 33. REPORT SCHEDULES (Section 13)
+CREATE TABLE IF NOT EXISTS report_schedules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+    business_id UUID REFERENCES business_locations(id) ON DELETE CASCADE,
+    frequency VARCHAR(50) DEFAULT 'monthly', -- weekly, monthly, quarterly
+    recipients JSONB DEFAULT '[]'::jsonb,
+    report_type VARCHAR(50) DEFAULT 'executive',
+    last_sent_at TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 34. USAGE RECORDS (Section 13)
+CREATE TABLE IF NOT EXISTS usage_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+    metric VARCHAR(100) NOT NULL, -- ai_generations, geo_scans, reviews_processed, reports_exported
+    quantity INTEGER DEFAULT 1,
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 35. API LOGS & TELEMETRY (Section 13 & 18)
+CREATE TABLE IF NOT EXISTS api_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+    business_id UUID REFERENCES business_locations(id) ON DELETE SET NULL,
+    service VARCHAR(100) NOT NULL, -- google_gbp, openai, gemini, razorpay
+    endpoint VARCHAR(255) NOT NULL,
+    method VARCHAR(10) DEFAULT 'POST',
+    status_code INTEGER DEFAULT 200,
+    duration_ms INTEGER DEFAULT 0,
+    request_payload JSONB,
+    response_payload JSONB,
+    tokens_used INTEGER DEFAULT 0,
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_api_logs_workspace ON api_logs(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_api_logs_service ON api_logs(service);
+CREATE INDEX IF NOT EXISTS idx_api_logs_created ON api_logs(created_at);
+

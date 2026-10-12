@@ -6,6 +6,7 @@
   console.log('[REDES EXTENSION] Universal draft listener active on:', window.location.href);
 
   // Broadcast to page that extension is active
+  window.__REDES_EXTENSION_ACTIVE__ = true;
   window.postMessage({ type: 'REDES_EXTENSION_READY' }, '*');
   if (document.documentElement) {
     document.documentElement.setAttribute('data-redes-extension-active', 'true');
@@ -26,8 +27,12 @@
     // 1. Direct storage sync (fastest & works even if background worker is asleep)
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       try {
-        chrome.storage.local.set({ latestReviewDraft: draftData }, () => {
+        chrome.storage.local.set({ 
+          latestReviewDraft: draftData,
+          redes_backup_draft: draftData
+        }, () => {
           console.log('[REDES EXTENSION] Direct storage sync succeeded:', cleanText.substring(0, 30));
+          window.postMessage({ type: 'REDES_DRAFT_SYNCED', success: true }, '*');
         });
       } catch (e) {}
     }
@@ -51,11 +56,31 @@
 
   // 1. Listen for window messages from Redes web app
   window.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'REDES_POST_DRAFT') {
-      const { text, rating, customerName, businessName } = event.data;
-      saveDraftToExtension(text, rating, { customerName, businessName });
+    if (!event.data) return;
+    if (event.data.type === 'REDES_POST_DRAFT' || event.data.type === 'REDES_STORE_DRAFT') {
+      const { text, rating, autoSubmit, customerName, businessName } = event.data;
+      saveDraftToExtension(text, rating, { autoSubmit: autoSubmit !== false, customerName, businessName });
+    } else if (event.data.type === 'REDES_REVIEW_DRAFT_UPDATE' && event.data.payload) {
+      const { draft, rating, authorName, businessName } = event.data.payload;
+      saveDraftToExtension(draft, rating, { autoSubmit: true, customerName: authorName, businessName });
+    } else if (event.data.text && typeof event.data.text === 'string' && event.data.text.length > 5) {
+      saveDraftToExtension(event.data.text, event.data.rating || 5, event.data);
     }
   });
+
+  // Check and sync from localStorage immediately
+  function syncFromLocalStorage() {
+    try {
+      const rawSaved = localStorage.getItem('redes_latest_review_draft');
+      if (rawSaved) {
+        const parsed = JSON.parse(rawSaved);
+        if (parsed?.text) {
+          saveDraftToExtension(parsed.text, parsed.rating, { customerName: parsed.customerName, businessName: parsed.businessName });
+        }
+      }
+    } catch (e) {}
+  }
+  syncFromLocalStorage();
 
   // 2. Listen for clipboard copy events anywhere on feedback pages
   document.addEventListener('copy', () => {
@@ -65,16 +90,7 @@
       saveDraftToExtension(selection);
       return;
     }
-
-    try {
-      const rawSaved = localStorage.getItem('redes_latest_review_draft');
-      if (rawSaved) {
-        const parsed = JSON.parse(rawSaved);
-        if (parsed.text) {
-          saveDraftToExtension(parsed.text, parsed.rating, { customerName: parsed.customerName, businessName: parsed.businessName });
-        }
-      }
-    } catch (e) {}
+    syncFromLocalStorage();
   });
 
   // 3. Scan DOM on feedback pages for existing drafts (handles existing Vercel deployments!)

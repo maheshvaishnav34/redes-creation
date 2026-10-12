@@ -1,0 +1,886 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id               String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id     String?            @db.Uuid
+  email            String             @unique @db.VarChar(255)
+  passwordHash     String             @map("password_hash") @db.VarChar(255)
+  fullName         String             @map("full_name") @db.VarChar(255)
+  avatarUrl        String?            @map("avatar_url")
+  role             String?            @default("owner") @db.VarChar(50)
+  isActive         Boolean?           @default(true) @map("is_active")
+  lastLoginAt      DateTime?          @map("last_login_at") @db.Timestamptz(6)
+  createdAt        DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime?          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  auditLogs        AuditLog[]
+  notifications    notifications[]
+  review_responses review_responses[]
+  tasks            tasks[]
+  workspaces       workspaces?        @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([workspace_id], map: "idx_users_workspace")
+  @@map("users")
+}
+
+model GoogleConnection {
+  id                 String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id       String?            @db.Uuid
+  accountEmail       String?            @map("account_email") @db.VarChar(255)
+  account_name       String?            @db.VarChar(255)
+  accessToken        String?            @map("access_token")
+  refresh_token      String?
+  tokenExpiry        DateTime?          @map("token_expiry") @db.Timestamptz(6)
+  status             String?            @default("connected") @db.VarChar(50)
+  sync_frequency     String?            @default("daily") @db.VarChar(50)
+  last_sync_at       DateTime?          @db.Timestamptz(6)
+  last_error         String?
+  createdAt          DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime?          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  quota_limit        Int?               @default(10000)
+  quota_used         Int?               @default(120)
+  is_token_encrypted Boolean?           @default(true)
+  permissions        Json?              @default("[\"business.manage\", \"reviews.read_write\", \"performance.read\"]")
+  workspaces         workspaces?        @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  google_locations   google_locations[]
+
+  @@map("google_connections")
+}
+
+model BusinessLocation {
+  id                 String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id       String?              @db.Uuid
+  client_id          String?              @db.Uuid
+  name               String               @db.VarChar(255)
+  industry_id        String?              @db.VarChar(100)
+  subcategory_id     String?              @db.VarChar(100)
+  business_model     String?              @default("storefront") @db.VarChar(50)
+  address            String?
+  city               String?              @db.VarChar(100)
+  country            String?              @default("India") @db.VarChar(100)
+  postalCode         String?              @map("postal_code") @db.VarChar(50)
+  latitude           Decimal?             @default(23.0225) @db.Decimal(10, 7)
+  longitude          Decimal?             @default(72.5714) @db.Decimal(10, 7)
+  phone              String?              @db.VarChar(50)
+  website            String?
+  service_areas      Json?                @default("[]")
+  isPrimary          Boolean?             @default(false) @map("is_primary")
+  health_score       Decimal?             @default(85.00) @db.Decimal(5, 2)
+  createdAt          DateTime?            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime?            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  customer_intents   Json?                @default("[\"visit\", \"call\"]")
+  service_radius     Int?                 @default(15)
+  subcategory_name   String?              @db.VarChar(255)
+  ai_generations     ai_generations[]
+  api_logs           api_logs[]
+  clients            clients?             @relation(fields: [client_id], references: [id], onUpdate: NoAction)
+  industries         industries?          @relation(fields: [industry_id], references: [id], onUpdate: NoAction)
+  workspaces         workspaces?          @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  business_profiles  business_profiles?
+  business_services  business_services[]
+  campaign_customers campaign_customers[]
+  campaign_events    campaign_events[]
+  competitors        competitors[]
+  geo_grids          geo_grids[]
+  google_locations   google_locations?
+  google_posts       google_posts[]
+  job_runs           job_runs[]
+  keyword_groups     keyword_groups[]
+  keywords           Keyword[]
+  notifications      notifications[]
+  performance_daily  performance_daily[]
+  recommendations    recommendations[]
+  report_schedules   report_schedules[]
+  reports            Report[]
+  review_campaigns   ReviewCampaign[]
+  review_feedback    review_feedback[]
+  review_qr_codes    review_qr_codes[]
+  reviews            Review[]
+  seo_audits         SEOAudit[]
+  tasks              tasks[]
+
+  @@index([workspace_id], map: "idx_businesses_workspace")
+  @@map("business_locations")
+}
+
+model Review {
+  id                         String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  business_id                String?            @db.Uuid
+  google_location_id         String?            @db.Uuid
+  gbp_review_id              String?            @unique @db.VarChar(255)
+  author_name                String             @db.VarChar(255)
+  author_photo_url           String?
+  rating                     Int
+  review_text                String?
+  reviewDate                 DateTime?          @default(now()) @map("review_date") @db.Timestamptz(6)
+  sentiment                  String?            @default("neutral") @db.VarChar(50)
+  sentimentScore             Decimal?           @default(0.0) @map("sentiment_score") @db.Decimal(5, 2)
+  detected_topics            Json?              @default("[]")
+  detected_keywords          Json?              @default("[]")
+  priority                   String?            @default("medium") @db.VarChar(50)
+  replyStatus                String?            @default("unanswered") @map("reply_status") @db.VarChar(50)
+  is_sensitive               Boolean?           @default(false)
+  recurring_complaint        String?            @db.VarChar(255)
+  recurring_praise           String?            @db.VarChar(255)
+  createdAt                  DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime?          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  review_feedback            String?
+  summary                    String?
+  positive_points            Json?              @default("[]")
+  negative_points            Json?              @default("[]")
+  complaints                 Json?              @default("[]")
+  praised_services           Json?              @default("[]")
+  urgency                    String?            @default("low") @db.VarChar(50)
+  issue_detected             Boolean?           @default(false)
+  issue_type                 String?            @db.VarChar(100)
+  customer_intent            String?
+  response_required          Boolean?           @default(false)
+  response_suggestion        String?
+  improvement_recommendation String?
+  ai_analysis                Json?              @default("{}")
+  processing_status          String?            @default("pending") @db.VarChar(50)
+  last_error                 String?
+  retry_count                Int?               @default(0)
+  processed_at               DateTime?          @db.Timestamptz(6)
+  review_responses           review_responses[]
+  business_locations         BusinessLocation?  @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  google_locations           google_locations?  @relation(fields: [google_location_id], references: [id], onUpdate: NoAction)
+
+  @@index([business_id], map: "idx_reviews_business")
+  @@index([business_id, createdAt(sort: Desc)], map: "idx_reviews_business_created")
+  @@index([business_id, gbp_review_id], map: "idx_reviews_business_gbp")
+  @@index([processing_status], map: "idx_reviews_processing_status")
+  @@index([rating], map: "idx_reviews_rating")
+  @@index([replyStatus], map: "idx_reviews_reply_status")
+  @@index([sentiment], map: "idx_reviews_sentiment")
+  @@map("reviews")
+}
+
+model SEOAudit {
+  id                 String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  business_id        String?           @db.Uuid
+  overallScore       Int?              @default(82) @map("overall_score")
+  gbp_score          Int?              @default(88)
+  localSignalsScore  Int?              @default(75) @map("local_signals_score")
+  contentScore       Int?              @default(80) @map("content_score")
+  review_score       Int?              @default(85)
+  status             String?           @default("completed") @db.VarChar(50)
+  completed_at       DateTime?         @default(now()) @db.Timestamptz(6)
+  createdAt          DateTime?         @default(now()) @map("created_at") @db.Timestamptz(6)
+  business_locations BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  seo_checks         seo_checks[]
+
+  @@map("seo_audits")
+}
+
+model Keyword {
+  id                     String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  business_id            String?                  @db.Uuid
+  group_id               String?                  @db.Uuid
+  keyword                String                   @db.VarChar(255)
+  intent                 String?                  @default("local") @db.VarChar(50)
+  relevance              Int?                     @default(90)
+  difficulty             Int?                     @default(35)
+  search_volume          Int?                     @default(1200)
+  current_rank           Int?
+  previous_rank          Int?
+  best_rank              Int?
+  is_primary             Boolean?                 @default(false)
+  status                 String?                  @default("approved") @db.VarChar(50)
+  opportunity_score      Int?                     @default(80)
+  opportunity_reason     String?
+  last_tracked_at        DateTime?                @default(now()) @db.Timestamptz(6)
+  createdAt              DateTime?                @default(now()) @map("created_at") @db.Timestamptz(6)
+  geo_grids              geo_grids[]
+  keyword_rank_snapshots keyword_rank_snapshots[]
+  business_locations     BusinessLocation?        @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  keyword_groups         keyword_groups?          @relation(fields: [group_id], references: [id], onUpdate: NoAction)
+
+  @@index([business_id], map: "idx_keywords_business")
+  @@index([current_rank], map: "idx_keywords_rank")
+  @@map("keywords")
+}
+
+model CompetitorSnapshot {
+  id               String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  competitor_id    String?      @db.Uuid
+  rating           Decimal?     @db.Decimal(3, 2)
+  reviewCount      Int?         @map("review_count")
+  visibility_score Decimal?     @db.Decimal(5, 2)
+  recorded_at      DateTime?    @default(now()) @db.Timestamptz(6)
+  competitors      competitors? @relation(fields: [competitor_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("competitor_snapshots")
+}
+
+model Report {
+  id                   String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id         String?           @db.Uuid
+  business_id          String?           @db.Uuid
+  title                String            @db.VarChar(255)
+  reportType           String?           @default("executive") @map("report_type") @db.VarChar(50)
+  date_range_start     DateTime?         @db.Date
+  date_range_end       DateTime?         @db.Date
+  summary_data         Json?             @default("{}")
+  ai_executive_summary String?
+  recommendations      Json?             @default("[]")
+  created_at           DateTime?         @default(now()) @db.Timestamptz(6)
+  business_locations   BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspaces           workspaces?       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("reports")
+}
+
+model AuditLog {
+  id           String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id String?     @db.Uuid
+  userId       String?     @map("user_id") @db.Uuid
+  action       String      @db.VarChar(255)
+  entity_type  String      @db.VarChar(100)
+  entityId     String?     @map("entity_id") @db.VarChar(255)
+  details      Json?       @default("{}")
+  ipAddress    String?     @map("ip_address") @db.VarChar(50)
+  createdAt    DateTime?   @default(now()) @map("created_at") @db.Timestamptz(6)
+  user         User?       @relation(fields: [userId], references: [id], onUpdate: NoAction)
+  workspaces   workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([workspace_id], map: "idx_audit_logs_workspace")
+  @@map("audit_logs")
+}
+
+model ReviewCampaign {
+  id                        String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  business_id               String?           @db.Uuid
+  name                      String            @db.VarChar(255)
+  channel                   String?           @default("qr") @db.VarChar(50)
+  message_template          String?
+  target_audience           String?           @db.VarChar(255)
+  review_link               String?
+  qr_code_data              String?
+  google_review_url         String?
+  post_review_enabled       Boolean?          @default(true)
+  status                    String?           @default("active") @db.VarChar(50)
+  sent_count                Int?              @default(0)
+  delivered_count           Int?              @default(0)
+  clicked_count             Int?              @default(0)
+  feedback_started_count    Int?              @default(0)
+  destination_clicked_count Int?              @default(0)
+  attributed_reviews_count  Int?              @default(0)
+  createdAt                 DateTime?         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime?         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  business_name             String?           @db.VarChar(255)
+  website                   String?           @db.VarChar(500)
+  phone                     String?           @db.VarChar(100)
+  services                  Json?             @default("[]")
+  campaign_events           campaign_events[]
+  business_locations        BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  review_feedback           review_feedback[]
+  review_qr_codes           review_qr_codes[]
+
+  @@map("review_campaigns")
+}
+
+model ai_generations {
+  id                 String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id       String?           @db.Uuid
+  business_id        String?           @db.Uuid
+  module             String            @db.VarChar(100)
+  prompt_version     String?           @default("v1.0") @db.VarChar(50)
+  input_context      Json?             @default("{}")
+  output_content     String?
+  model_name         String?           @default("gemini-1.5-pro") @db.VarChar(100)
+  tokens_used        Int?              @default(0)
+  cost_usd           Decimal?          @default(0.0) @db.Decimal(8, 6)
+  status             String?           @default("success") @db.VarChar(50)
+  created_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  business_locations BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspaces         workspaces?       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model ai_prompt_versions {
+  id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  module               String    @db.VarChar(100)
+  version              String    @db.VarChar(50)
+  system_prompt        String
+  user_prompt_template String
+  safety_instructions  String?
+  is_active            Boolean?  @default(true)
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+  industry_id          String?   @default("all") @db.VarChar(100)
+}
+
+model api_logs {
+  id                 String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id       String?           @db.Uuid
+  business_id        String?           @db.Uuid
+  service            String            @db.VarChar(100)
+  endpoint           String            @db.VarChar(255)
+  method             String?           @default("POST") @db.VarChar(10)
+  status_code        Int?              @default(200)
+  duration_ms        Int?              @default(0)
+  request_payload    Json?
+  response_payload   Json?
+  tokens_used        Int?              @default(0)
+  error_message      String?
+  created_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  business_locations BusinessLocation? @relation(fields: [business_id], references: [id], onUpdate: NoAction)
+  workspaces         workspaces?       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_api_logs_created")
+  @@index([service], map: "idx_api_logs_service")
+  @@index([workspace_id], map: "idx_api_logs_workspace")
+}
+
+model business_profiles {
+  id                   String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  business_id          String?           @unique @db.Uuid
+  identity             String?           @db.VarChar(255)
+  description          String?
+  services             Json?             @default("[]")
+  products             Json?             @default("[]")
+  customer_personas    Json?             @default("[]")
+  brand_voice          String?           @default("Professional") @db.VarChar(50)
+  languages            Json?             @default("[\"en\"]")
+  approved_claims      Json?             @default("[]")
+  restricted_claims    Json?             @default("[]")
+  target_keywords      Json?             @default("[]")
+  excluded_keywords    Json?             @default("[]")
+  reply_rules          Json?             @default("{\"draft_3_star\": true, \"auto_reply_4_star\": true, \"auto_reply_5_star\": true, \"manual_approval_1_2_star\": true}")
+  escalation_rules     Json?             @default("{\"notify_manager_on_1_star\": true, \"require_approval_sensitive\": true}")
+  compliance_rules     Json?             @default("[]")
+  knowledge_base       Json?             @default("[]")
+  onboarding_completed Boolean?          @default(false)
+  onboarding_score     Int?              @default(0)
+  created_at           DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?         @default(now()) @db.Timestamptz(6)
+  customer_intents     Json?             @default("[]")
+  prohibited_claims    Json?             @default("[]")
+  seo_rules            Json?             @default("{}")
+  ai_policy            Json?             @default("{}")
+  business_locations   BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model business_services {
+  id                 String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  business_id        String?           @db.Uuid
+  name               String            @db.VarChar(255)
+  category           String?           @db.VarChar(100)
+  description        String?
+  price_estimate     String?           @db.VarChar(100)
+  is_gbp_synced      Boolean?          @default(true)
+  created_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  business_locations BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model campaign_customers {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id        String?           @db.Uuid
+  name               String            @db.VarChar(255)
+  email              String?           @db.VarChar(255)
+  phone              String?           @db.VarChar(50)
+  service            String?           @default("General Service") @db.VarChar(255)
+  visit_date         DateTime?         @default(dbgenerated("CURRENT_DATE")) @db.Date
+  language           String?           @default("en") @db.VarChar(20)
+  status             String?           @default("active") @db.VarChar(50)
+  last_contact_at    DateTime?         @default(now()) @db.Timestamptz(6)
+  review_activity    String?           @default("pending") @db.VarChar(50)
+  notes              String?
+  created_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  business_locations BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([business_id], map: "idx_cc_business")
+}
+
+model campaign_events {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaign_id        String?           @db.Uuid
+  business_id        String?           @db.Uuid
+  event_type         String            @db.VarChar(100)
+  metadata           Json?             @default("{}")
+  ip_address         String?           @db.VarChar(100)
+  user_agent         String?
+  created_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  business_locations BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  review_campaigns   ReviewCampaign?   @relation(fields: [campaign_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([campaign_id], map: "idx_ce_campaign")
+  @@index([event_type], map: "idx_ce_event")
+}
+
+model clients {
+  id                 String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id       String?            @db.Uuid
+  name               String             @db.VarChar(255)
+  email              String?            @db.VarChar(255)
+  phone              String?            @db.VarChar(50)
+  company            String?            @db.VarChar(255)
+  status             String?            @default("active") @db.VarChar(50)
+  created_at         DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?          @default(now()) @db.Timestamptz(6)
+  business_locations BusinessLocation[]
+  workspaces         workspaces?        @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model competitors {
+  id                   String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  business_id          String?              @db.Uuid
+  name                 String               @db.VarChar(255)
+  place_id             String?              @db.VarChar(255)
+  website              String?
+  rating               Decimal?             @default(4.3) @db.Decimal(3, 2)
+  review_count         Int?                 @default(180)
+  review_velocity      Decimal?             @default(6.5) @db.Decimal(5, 2)
+  categories           Json?                @default("[]")
+  visibility_score     Decimal?             @default(65.0) @db.Decimal(5, 2)
+  review_themes        Json?                @default("[]")
+  keyword_overlap      Json?                @default("[]")
+  keyword_gaps         Json?                @default("[]")
+  status               String?              @default("active") @db.VarChar(50)
+  created_at           DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?            @default(now()) @db.Timestamptz(6)
+  competitor_snapshots CompetitorSnapshot[]
+  business_locations   BusinessLocation?    @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([business_id], map: "idx_competitors_business")
+}
+
+model geo_grid_points {
+  id              String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  geo_grid_id     String?    @db.Uuid
+  row_idx         Int
+  col_idx         Int
+  lat             Decimal    @db.Decimal(10, 7)
+  lng             Decimal    @db.Decimal(10, 7)
+  rank            Int
+  top_competitors Json?      @default("[]")
+  is_ranking      Boolean?   @default(true)
+  geo_grids       geo_grids? @relation(fields: [geo_grid_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model geo_grids {
+  id                    String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  business_id           String?           @db.Uuid
+  keyword_id            String?           @db.Uuid
+  keyword               String            @db.VarChar(255)
+  grid_size             Int?              @default(5)
+  radius_km             Decimal?          @default(5.0) @db.Decimal(5, 2)
+  center_lat            Decimal           @db.Decimal(10, 7)
+  center_lng            Decimal           @db.Decimal(10, 7)
+  visibility_percentage Decimal?          @default(72.5) @db.Decimal(5, 2)
+  average_rank          Decimal?          @default(3.4) @db.Decimal(5, 2)
+  scan_date             DateTime?         @default(now()) @db.Timestamptz(6)
+  created_at            DateTime?         @default(now()) @db.Timestamptz(6)
+  geo_grid_points       geo_grid_points[]
+  business_locations    BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  keywords              Keyword?          @relation(fields: [keyword_id], references: [id], onUpdate: NoAction)
+
+  @@index([business_id], map: "idx_geogrids_business")
+}
+
+model google_locations {
+  id                   String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  google_connection_id String?           @db.Uuid
+  business_id          String?           @unique @db.Uuid
+  gbp_location_id      String            @db.VarChar(255)
+  gbp_place_id         String?           @db.VarChar(255)
+  location_name        String            @db.VarChar(255)
+  address              String?
+  primary_category     String?           @db.VarChar(255)
+  secondary_categories Json?             @default("[]")
+  phone                String?           @db.VarChar(50)
+  website              String?
+  is_verified          Boolean?          @default(true)
+  sync_status          String?           @default("synced") @db.VarChar(50)
+  last_synced_at       DateTime?         @default(now()) @db.Timestamptz(6)
+  created_at           DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?         @default(now()) @db.Timestamptz(6)
+  supported_services   Json?             @default("[]")
+  categories           Json?             @default("[]")
+  partial_sync_details Json?             @default("{}")
+  error_status         String?           @default("healthy") @db.VarChar(100)
+  business_locations   BusinessLocation? @relation(fields: [business_id], references: [id], onUpdate: NoAction)
+  google_connections   GoogleConnection? @relation(fields: [google_connection_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  google_posts         google_posts[]
+  reviews              Review[]
+}
+
+model google_posts {
+  id                 String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id       String?           @db.Uuid
+  business_id        String?           @db.Uuid
+  google_location_id String?           @db.Uuid
+  gbp_post_id        String?           @db.VarChar(255)
+  topic_type         String?           @default("STANDARD") @db.VarChar(50)
+  summary            String
+  action_type        String?           @db.VarChar(50)
+  action_url         String?
+  media_url          String?
+  status             String?           @default("published") @db.VarChar(50)
+  published_at       DateTime?         @default(now()) @db.Timestamptz(6)
+  created_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  business_locations BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  google_locations   google_locations? @relation(fields: [google_location_id], references: [id], onUpdate: NoAction)
+  workspaces         workspaces?       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model industries {
+  id                     String                   @id @db.VarChar(100)
+  name                   String                   @db.VarChar(255)
+  icon                   String?                  @db.VarChar(100)
+  description            String?
+  default_topics         Json?                    @default("[]")
+  default_tone           String?                  @default("Professional") @db.VarChar(50)
+  compliance_rules       Json?                    @default("[]")
+  created_at             DateTime?                @default(now()) @db.Timestamptz(6)
+  customer_intents       Json?                    @default("[\"visit\", \"call\", \"enquiry\"]")
+  seo_rules              Json?                    @default("{}")
+  ai_policy              Json?                    @default("{}")
+  business_locations     BusinessLocation[]
+  industry_subcategories industry_subcategories[]
+}
+
+model industry_subcategories {
+  id                 String      @id @db.VarChar(100)
+  industry_id        String?     @db.VarChar(100)
+  name               String      @db.VarChar(255)
+  suggested_services Json?       @default("[]")
+  suggested_keywords Json?       @default("[]")
+  industries         industries? @relation(fields: [industry_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model invoices {
+  id             String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  invoice_number String      @unique @db.VarChar(50)
+  workspace_id   String?     @db.Uuid
+  amount         Decimal     @db.Decimal(10, 2)
+  currency       String?     @default("INR") @db.VarChar(10)
+  status         String?     @default("Paid") @db.VarChar(50)
+  plan_id        String      @db.VarChar(50)
+  plan_name      String      @db.VarChar(100)
+  billing_cycle  String?     @default("monthly") @db.VarChar(50)
+  billing_date   DateTime?   @default(dbgenerated("CURRENT_DATE")) @db.Date
+  due_date       DateTime?   @default(dbgenerated("((CURRENT_DATE + '14 days'::interval))::date")) @db.Date
+  payment_method String?     @default("UPI / Card") @db.VarChar(100)
+  pdf_url        String?
+  created_at     DateTime?   @default(now()) @db.Timestamptz(6)
+  workspaces     workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model job_runs {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job_type           String            @db.VarChar(100)
+  business_id        String?           @db.Uuid
+  idempotency_key    String?           @unique @db.VarChar(255)
+  status             String            @default("pending") @db.VarChar(50)
+  retry_count        Int?              @default(0)
+  max_retries        Int?              @default(3)
+  started_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  finished_at        DateTime?         @db.Timestamptz(6)
+  execution_time_ms  Int?
+  items_processed    Int?              @default(0)
+  details            Json?             @default("{}")
+  error_message      String?
+  created_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  business_locations BusinessLocation? @relation(fields: [business_id], references: [id], onUpdate: NoAction)
+
+  @@index([business_id], map: "idx_job_runs_business_id")
+  @@index([created_at(sort: Desc)], map: "idx_job_runs_created_at")
+  @@index([idempotency_key], map: "idx_job_runs_idempotency")
+  @@index([job_type], map: "idx_job_runs_job_type")
+  @@index([status], map: "idx_job_runs_status")
+}
+
+model keyword_groups {
+  id                 String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  business_id        String?           @db.Uuid
+  name               String            @db.VarChar(100)
+  slug               String            @db.VarChar(100)
+  color              String?           @default("#6366f1") @db.VarChar(50)
+  description        String?
+  created_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  business_locations BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  keywords           Keyword[]
+}
+
+model keyword_rank_snapshots {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  keyword_id       String?   @db.Uuid
+  rank             Int
+  visibility_score Decimal?  @default(0.0) @db.Decimal(5, 2)
+  competitor_ranks Json?     @default("[]")
+  recorded_at      DateTime? @default(now()) @db.Timestamptz(6)
+  keywords         Keyword?  @relation(fields: [keyword_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model notifications {
+  id                 String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id       String?           @db.Uuid
+  business_id        String?           @db.Uuid
+  user_id            String?           @db.Uuid
+  event_type         String            @db.VarChar(100)
+  title              String            @db.VarChar(255)
+  message            String
+  priority           String?           @default("medium") @db.VarChar(50)
+  is_read            Boolean?          @default(false)
+  data               Json?             @default("{}")
+  created_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  business_locations BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users              User?             @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  workspaces         workspaces?       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, is_read], map: "idx_notifications_user")
+}
+
+model payment_methods {
+  id           String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id String?     @db.Uuid
+  type         String      @db.VarChar(50)
+  brand        String?     @db.VarChar(50)
+  last4        String?     @db.VarChar(100)
+  exp_month    Int?
+  exp_year     Int?
+  is_default   Boolean?    @default(false)
+  billing_name String?     @db.VarChar(255)
+  created_at   DateTime?   @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime?   @default(now()) @db.Timestamptz(6)
+  workspaces   workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model performance_daily {
+  id                   String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  business_id          String?           @db.Uuid
+  date                 DateTime          @db.Date
+  reviews_count        Int?              @default(0)
+  avg_rating           Decimal?          @default(0.0) @db.Decimal(3, 2)
+  sentiment_positive   Int?              @default(0)
+  sentiment_negative   Int?              @default(0)
+  searches_impressions Int?              @default(0)
+  maps_directions      Int?              @default(0)
+  phone_calls          Int?              @default(0)
+  website_clicks       Int?              @default(0)
+  created_at           DateTime?         @default(now()) @db.Timestamptz(6)
+  business_locations   BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([business_id, date])
+}
+
+model recommendations {
+  id                 String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  business_id        String?           @db.Uuid
+  source             String?           @default("seo_audit") @db.VarChar(50)
+  title              String            @db.VarChar(255)
+  description        String?
+  evidence           String?
+  why_it_matters     String?
+  expected_impact    String?           @db.VarChar(255)
+  confidence_score   Int?              @default(92)
+  priority           String?           @default("high") @db.VarChar(50)
+  suggested_action   String?
+  status             String?           @default("pending") @db.VarChar(50)
+  created_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  business_locations BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model report_schedules {
+  id                 String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id       String?           @db.Uuid
+  business_id        String?           @db.Uuid
+  frequency          String?           @default("monthly") @db.VarChar(50)
+  recipients         Json?             @default("[]")
+  report_type        String?           @default("executive") @db.VarChar(50)
+  last_sent_at       DateTime?         @db.Timestamptz(6)
+  is_active          Boolean?          @default(true)
+  created_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  business_locations BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspaces         workspaces?       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model review_feedback {
+  id                  String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  campaign_id         String?           @db.Uuid
+  business_id         String?           @db.Uuid
+  customer_name       String?           @db.VarChar(255)
+  rating              Int?
+  service_experienced String?           @db.VarChar(255)
+  feedback_text       String?
+  themes_selected     Json?             @default("[]")
+  proceeded_to_google Boolean?          @default(false)
+  created_at          DateTime?         @default(now()) @db.Timestamptz(6)
+  customer_phone      String?           @db.VarChar(100)
+  customer_email      String?           @db.VarChar(255)
+  table_number        String?           @db.VarChar(50)
+  business_locations  BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  review_campaigns    ReviewCampaign?   @relation(fields: [campaign_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model review_qr_codes {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaign_id        String?           @db.Uuid
+  business_id        String?           @db.Uuid
+  name               String            @db.VarChar(255)
+  qr_data            String
+  design_preset      String?           @default("branded") @db.VarChar(50)
+  fg_color           String?           @default("#034bc0") @db.VarChar(30)
+  bg_color           String?           @default("#ffffff") @db.VarChar(30)
+  label              String?           @default("Scan to Share Your Experience")
+  scans_count        Int?              @default(0)
+  unique_scans_count Int?              @default(0)
+  status             String?           @default("active") @db.VarChar(50)
+  created_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  business_locations BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  review_campaigns   ReviewCampaign?   @relation(fields: [campaign_id], references: [id], onUpdate: NoAction)
+
+  @@index([business_id], map: "idx_rqc_business")
+  @@index([campaign_id], map: "idx_rqc_campaign")
+}
+
+model review_responses {
+  id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  review_id            String?   @db.Uuid
+  response_text        String
+  response_options     Json?     @default("[]")
+  tone                 String?   @default("Professional") @db.VarChar(50)
+  generated_by_ai      Boolean?  @default(true)
+  approved_by          String?   @db.Uuid
+  published_at         DateTime? @db.Timestamptz(6)
+  safety_check_status  String?   @default("pass") @db.VarChar(50)
+  safety_check_details Json?     @default("{\"fact_check\": \"passed\", \"tone_check\": \"passed\", \"repetition_check\": \"passed\", \"sensitive_data_check\": \"passed\", \"unsupported_claims_check\": \"passed\"}")
+  audit_log            Json?     @default("[]")
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime? @default(now()) @db.Timestamptz(6)
+  users                User?     @relation(fields: [approved_by], references: [id], onUpdate: NoAction)
+  reviews              Review?   @relation(fields: [review_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model seo_checks {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  seo_audit_id    String?   @db.Uuid
+  category        String    @db.VarChar(100)
+  check_name      String    @db.VarChar(255)
+  status          String?   @default("passed") @db.VarChar(50)
+  severity        String?   @default("medium") @db.VarChar(50)
+  evidence        String?
+  why_it_matters  String?
+  recommendation  String?
+  is_task_created Boolean?  @default(false)
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  seo_audits      SEOAudit? @relation(fields: [seo_audit_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model subscriptions {
+  id                     String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id           String?     @unique @db.Uuid
+  plan                   String?     @default("professional") @db.VarChar(50)
+  status                 String?     @default("active") @db.VarChar(50)
+  billing_cycle          String?     @default("monthly") @db.VarChar(50)
+  locations_limit        Int?        @default(5)
+  reviews_limit          Int?        @default(1000)
+  ai_generations_limit   Int?        @default(500)
+  keywords_limit         Int?        @default(100)
+  geo_grids_limit        Int?        @default(50)
+  current_locations      Int?        @default(1)
+  current_reviews        Int?        @default(84)
+  current_ai_generations Int?        @default(36)
+  current_keywords       Int?        @default(28)
+  created_at             DateTime?   @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime?   @default(now()) @db.Timestamptz(6)
+  workspaces             workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model system_jobs {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  job_type        String    @db.VarChar(100)
+  status          String?   @default("completed") @db.VarChar(50)
+  items_processed Int?      @default(0)
+  details         Json?     @default("{}")
+  error_message   String?
+  started_at      DateTime? @default(now()) @db.Timestamptz(6)
+  finished_at     DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model tasks {
+  id                  String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id        String?           @db.Uuid
+  business_id         String?           @db.Uuid
+  title               String            @db.VarChar(255)
+  description         String?
+  source              String?           @default("manual") @db.VarChar(50)
+  priority            String?           @default("medium") @db.VarChar(50)
+  status              String?           @default("todo") @db.VarChar(50)
+  assigned_to_user_id String?           @db.Uuid
+  due_date            DateTime?         @db.Date
+  evidence            Json?             @default("{}")
+  created_at          DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?         @default(now()) @db.Timestamptz(6)
+  users               User?             @relation(fields: [assigned_to_user_id], references: [id], onUpdate: NoAction)
+  business_locations  BusinessLocation? @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspaces          workspaces?       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([status], map: "idx_tasks_status")
+  @@index([workspace_id], map: "idx_tasks_workspace")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model testimonials {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String    @db.VarChar(255)
+  rating        Int
+  text          String?
+  photos        Json?     @default("[]")
+  status        String?   @default("pending") @db.VarChar(50)
+  business_name String?   @default("Redes Creation") @db.VarChar(255)
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([created_at(sort: Desc)], map: "idx_testimonials_created_at")
+  @@index([status], map: "idx_testimonials_status")
+}
+
+model usage_records {
+  id           String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id String?     @db.Uuid
+  metric       String      @db.VarChar(100)
+  quantity     Int?        @default(1)
+  recorded_at  DateTime?   @default(now()) @db.Timestamptz(6)
+  workspaces   workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model workspaces {
+  id                 String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name               String             @db.VarChar(255)
+  slug               String             @unique @db.VarChar(255)
+  country            String?            @default("India") @db.VarChar(100)
+  timezone           String?            @default("Asia/Kolkata") @db.VarChar(100)
+  default_language   String?            @default("en") @db.VarChar(50)
+  plan               String?            @default("starter") @db.VarChar(50)
+  is_active          Boolean?           @default(true)
+  created_at         DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?          @default(now()) @db.Timestamptz(6)
+  ai_generations     ai_generations[]
+  api_logs           api_logs[]
+  audit_logs         AuditLog[]
+  business_locations BusinessLocation[]
+  clients            clients[]
+  google_connections GoogleConnection[]
+  google_posts       google_posts[]
+  invoices           invoices[]
+  notifications      notifications[]
+  payment_methods    payment_methods[]
+  report_schedules   report_schedules[]
+  reports            Report[]
+  subscriptions      subscriptions?
+  tasks              tasks[]
+  usage_records      usage_records[]
+  users              User[]
+}

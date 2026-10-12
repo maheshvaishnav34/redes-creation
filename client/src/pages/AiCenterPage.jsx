@@ -401,45 +401,104 @@ export const AiCenterPage = () => {
 
       {/* TAB 3: GENERATION LOGS */}
       {activeTab === 'generations' && (
-        <div className="rounded-2xl bg-slate-900/90 border border-slate-800 overflow-hidden shadow-xl">
-          <div className="p-4 border-b border-slate-800">
-            <h3 className="text-sm font-bold text-white">Immutable AI Execution Audit Logs</h3>
-            <p className="text-xs text-slate-400">Recorded model runs, tokens consumed, prompt templates, and latency.</p>
+        <div className="space-y-4">
+          {/* Grok AI & Prompt Versioning Telemetry Overview */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">LLM Engine</span>
+              <div className="text-sm font-bold text-white flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Grok AI (xAI)</span>
+              </div>
+              <span className="text-[10px] text-emerald-400 font-semibold">Live / Resilient Fallback</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Active Prompt Version</span>
+              <div className="text-sm font-bold text-indigo-300 font-mono">v2.2-production</div>
+              <span className="text-[10px] text-slate-500">15-Field BI Profile Bound</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Tokens Consumed</span>
+              <div className="text-sm font-bold text-white font-mono">
+                {generations.reduce((acc, g) => acc + (g.tokens_used || 0), 0).toLocaleString()}
+              </div>
+              <span className="text-[10px] text-slate-500">Across {generations.length} Generations</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Estimated Cost (USD)</span>
+              <div className="text-sm font-bold text-emerald-400 font-mono">
+                ${generations.reduce((acc, g) => acc + (parseFloat(g.cost_usd) || ((g.tokens_used || 0) * 0.000005)), 0).toFixed(4)}
+              </div>
+              <span className="text-[10px] text-slate-500">Atomic Multi-Tenant Meter</span>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950/60 text-slate-400 font-semibold border-b border-slate-800 uppercase text-[10px] tracking-wider">
-                <tr>
-                  <th className="py-3 px-4">Module</th>
-                  <th className="py-3 px-4">Model</th>
-                  <th className="py-3 px-4">Tokens</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Output Preview</th>
-                  <th className="py-3 px-4 text-right">Timestamp</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/80 text-slate-200">
-                {generations.map((g) => (
-                  <tr key={g.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3 px-4 font-bold text-indigo-400">{g.module}</td>
-                    <td className="py-3 px-4">{g.model_name}</td>
-                    <td className="py-3 px-4">{g.tokens_used}</td>
-                    <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-300">
-                        {g.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 max-w-xs truncate text-slate-400">
-                      {g.output_content}
-                    </td>
-                    <td className="py-3 px-4 text-right text-slate-400">
-                      {new Date(g.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </td>
+          <div className="rounded-2xl bg-slate-900/90 border border-slate-800 overflow-hidden shadow-xl">
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-white">Grok AI Execution & Prompt Version Audit Logs</h3>
+                <p className="text-xs text-slate-400">Immutable records of prompt version, tokens consumed, and response cost.</p>
+              </div>
+              <span className="px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-mono font-bold">
+                v2.2-production
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-950/60 text-slate-400 font-semibold border-b border-slate-800 uppercase text-[10px] tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Module</th>
+                    <th className="py-3 px-4">Prompt Version</th>
+                    <th className="py-3 px-4">Model</th>
+                    <th className="py-3 px-4">Tokens</th>
+                    <th className="py-3 px-4">Est. Cost</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">Output Preview</th>
+                    <th className="py-3 px-4 text-right">Timestamp</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80 text-slate-200">
+                  {generations.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-500 text-xs">
+                        No AI generation records found yet. Try asking the AI Assistant or generating a review reply!
+                      </td>
+                    </tr>
+                  ) : (
+                    generations.map((g) => (
+                      <tr key={g.id} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3 px-4 font-bold text-indigo-400">{g.module}</td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                            {g.prompt_version || 'v2.2-production'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-300">{g.model_name || 'gpt-4o'}</td>
+                        <td className="py-3 px-4 font-mono">{g.tokens_used || 0}</td>
+                        <td className="py-3 px-4 font-mono text-emerald-400">
+                          ${parseFloat(g.cost_usd || ((g.tokens_used || 0) * 0.000005)).toFixed(5)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-300">
+                            {g.status || 'completed'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 max-w-xs truncate text-slate-400" title={g.output_content}>
+                          {g.output_content}
+                        </td>
+                        <td className="py-3 px-4 text-right text-slate-400">
+                          {new Date(g.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

@@ -69,11 +69,15 @@ export const runNewScan = async (req, res, next) => {
     let top3Count = 0;
     const pointsToInsert = [];
 
-    const competitorsSample = [
-      { name: 'Mirch Masala Dine', rank: 2 },
-      { name: 'Royal Treat Bistro', rank: 3 },
-      { name: 'The Grand Bhagwati', rank: 4 }
-    ];
+    // Dynamically retrieve monitored competitors from database (Section 24: Avoid hardcoded niche logic)
+    const compRes = await query(`SELECT name FROM competitors WHERE business_id = $1 LIMIT 3`, [businessId]);
+    const competitorsSample = compRes.rows.length > 0
+      ? compRes.rows.map((c, i) => ({ name: c.name, rank: i + 2 }))
+      : [
+          { name: 'Local Market Provider A', rank: 2 },
+          { name: 'Local Market Provider B', rank: 3 },
+          { name: 'Local Market Provider C', rank: 4 }
+        ];
 
     // Generate grid matrix
     for (let r = 0; r < gridSize; r++) {

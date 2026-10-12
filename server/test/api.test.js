@@ -8,7 +8,8 @@ test('1. System Health Check', async () => {
   assert.equal(res.status, 200);
   const data = await res.json();
   assert.equal(data.status, 'healthy');
-  assert.equal(data.database, 'connected');
+  assert.ok(data.database.includes('PostgreSQL') || data.database === 'connected');
+  assert.equal(data.dbConnected, true);
 });
 
 test('2. Authentication & Tenant Token Generation', async () => {

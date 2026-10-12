@@ -20,7 +20,8 @@ import {
   getCampaignAnalyticsOverview,
   generateAiCampaignMessage,
   trackCampaignEvent,
-  autoPostReviewToGoogle
+  autoPostReviewToGoogle,
+  getPublicBusinessReviewUrl
 } from './campaigns.controller.js';
 import { authenticate } from '../../middleware/auth.js';
 import { tenantIsolation } from '../../middleware/tenant.js';
@@ -29,6 +30,8 @@ import { authorize } from '../../middleware/rbac.js';
 const router = Router();
 
 // Public feedback & event endpoints (accessible without login)
+router.get('/public/review-url', getPublicBusinessReviewUrl);
+router.get('/public/review-url/:businessId', getPublicBusinessReviewUrl);
 router.get('/public/:slug', getPublicCampaignDetails);
 router.post('/public/feedback', submitCustomerFeedback);
 router.post('/public/auto-post-review', autoPostReviewToGoogle);
