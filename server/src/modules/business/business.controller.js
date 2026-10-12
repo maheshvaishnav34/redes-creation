@@ -2,6 +2,7 @@ import QRCode from 'qrcode';
 import { query } from '../../config/db.js';
 import { logAudit } from '../../middleware/auditLogger.js';
 import { validateGoogleReviewUrl } from '../../utils/googleUrlValidator.js';
+import { getClientBaseUrl } from '../campaigns/campaigns.controller.js';
 
 export const getIndustries = async (req, res, next) => {
   try {
@@ -372,8 +373,7 @@ export const submitOnboarding = async (req, res, next) => {
     // 6. Auto-Create an Isolated Review Campaign & QR Code for THIS Location
     const cleanName = finalBusinessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const campaignSlug = `${cleanName}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const reqOrigin = req.get('origin') || req.headers.origin;
-    const clientBaseUrl = (reqOrigin && reqOrigin.includes('localhost')) ? reqOrigin : (process.env.CLIENT_URL || 'http://localhost:5173');
+    const clientBaseUrl = getClientBaseUrl(req);
     const reviewLink = `${clientBaseUrl}/feedback/${campaignSlug}`;
 
     let qrCodeData = null;

@@ -18,6 +18,24 @@ export function getLocalNetworkIp() {
   return 'localhost';
 }
 
+export function getClientBaseUrl(req) {
+  const origin = req.get('origin') || req.headers?.origin;
+  if (origin && typeof origin === 'string' && origin.startsWith('http')) {
+    return origin.replace(/\/+$/, '');
+  }
+  const referer = req.get('referer') || req.headers?.referer;
+  if (referer && typeof referer === 'string' && referer.startsWith('http')) {
+    try {
+      const u = new URL(referer);
+      return `${u.protocol}//${u.host}`;
+    } catch {}
+  }
+  if (process.env.CLIENT_URL && !process.env.CLIENT_URL.includes('localhost')) {
+    return process.env.CLIENT_URL.replace(/\/+$/, '');
+  }
+  return 'https://client-seven-lemon-73.vercel.app';
+}
+
 export const listCampaigns = async (req, res, next) => {
   try {
     let businessId = req.params.businessId || req.businessId;
@@ -67,8 +85,7 @@ export const listCampaigns = async (req, res, next) => {
         const resolved = await resolveBusinessGoogleReviewUrl(b.id);
         const cleanName = b.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         const campaignSlug = `${cleanName}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const reqOrigin = req.get('origin') || req.headers.origin;
-        const clientBaseUrl = (reqOrigin && reqOrigin.includes('localhost')) ? reqOrigin : (process.env.CLIENT_URL || 'http://localhost:5173');
+        const clientBaseUrl = getClientBaseUrl(req);
         const reviewLink = `${clientBaseUrl}/feedback/${campaignSlug}`;
 
         let qrCodeData = null;
@@ -105,9 +122,45 @@ export const listCampaigns = async (req, res, next) => {
       }
     }
 
+    const clientBaseUrl = getClientBaseUrl(req);
+    const dynamicCampaigns = await Promise.all(
+      campRes.rows.map(async (camp) => {
+        let link = camp.review_link;
+        let qrCode = camp.qr_code_data;
+        if (link) {
+          try {
+            const parsed = new URL(link);
+            const dynamicLink = `${clientBaseUrl}${parsed.pathname}${parsed.search}`;
+            if (dynamicLink !== link || !qrCode) {
+              link = dynamicLink;
+              qrCode = await QRCode.toDataURL(link, {
+                width: 320,
+                margin: 2,
+                color: { dark: '#034bc0', light: '#ffffff' }
+              });
+            }
+          } catch {
+            link = `${clientBaseUrl}/feedback/${camp.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'review'}`;
+            try {
+              qrCode = await QRCode.toDataURL(link, {
+                width: 320,
+                margin: 2,
+                color: { dark: '#034bc0', light: '#ffffff' }
+              });
+            } catch {}
+          }
+        }
+        return {
+          ...camp,
+          review_link: link,
+          qr_code_data: qrCode
+        };
+      })
+    );
+
     res.json({ 
       success: true, 
-      campaigns: campRes.rows,
+      campaigns: dynamicCampaigns,
       serverIp: getLocalNetworkIp()
     });
   } catch (err) {
@@ -136,7 +189,26 @@ export const getCampaignById = async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'Campaign not found' });
     }
 
-    res.json({ success: true, campaign: campRes.rows[0] });
+    const camp = campRes.rows[0];
+    const clientBaseUrl = getClientBaseUrl(req);
+    let link = camp.review_link;
+    let qrCode = camp.qr_code_data;
+    if (link) {
+      try {
+        const parsed = new URL(link);
+        const dynamicLink = `${clientBaseUrl}${parsed.pathname}${parsed.search}`;
+        if (dynamicLink !== link || !qrCode) {
+          link = dynamicLink;
+          qrCode = await QRCode.toDataURL(link, {
+            width: 320,
+            margin: 2,
+            color: { dark: '#034bc0', light: '#ffffff' }
+          });
+        }
+      } catch {}
+    }
+
+    res.json({ success: true, campaign: { ...camp, review_link: link, qr_code_data: qrCode } });
   } catch (err) {
     next(err);
   }
@@ -222,8 +294,7 @@ export const createCampaign = async (req, res, next) => {
     // Generate campaign ID and public URL slug
     const cleanName = trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const campaignSlug = `${cleanName}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const reqOrigin = req.get('origin') || req.headers.origin;
-    const clientBaseUrl = (reqOrigin && reqOrigin.includes('localhost')) ? reqOrigin : (process.env.CLIENT_URL || 'http://localhost:5173');
+    const clientBaseUrl = getClientBaseUrl(req);
     const reviewLink = `${clientBaseUrl}/feedback/${campaignSlug}`;
 
     // Generate high-resolution QR code
@@ -861,8 +932,7 @@ export const duplicateCampaign = async (req, res, next) => {
       .replace(/^-|-$/g, '');
     const newSlug = `${baseSlug}-copy-${randomSuffix}`;
 
-    const reqOrigin = req.get('origin') || req.headers.origin;
-    const clientBaseUrl = (reqOrigin && reqOrigin.includes('localhost')) ? reqOrigin : (process.env.CLIENT_URL || 'http://localhost:5173');
+    const clientBaseUrl = getClientBaseUrl(req);
     const newReviewLink = `${clientBaseUrl}/feedback/${newSlug}`;
 
     let qrCodeData = null;
