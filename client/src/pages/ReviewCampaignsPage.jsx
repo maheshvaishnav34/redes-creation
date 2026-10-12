@@ -1103,10 +1103,6 @@ export const ReviewCampaignsPage = () => {
                   {qrLabel}
                 </p>
 
-                <div className="text-[11px] font-mono text-slate-500 break-all px-2 pt-0.5 select-all font-medium">
-                  {getDisplayReviewLink((campaigns.find(c => c.id === qrSelectedCampId) || campaigns[0])?.review_link)}
-                </div>
-
                 <div className="pt-1 text-[10px] text-slate-400 flex items-center justify-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Verified Google Review Destination</span>
@@ -1659,9 +1655,6 @@ export const ReviewCampaignsPage = () => {
                     alt="QR Print"
                     className="w-44 h-44 object-contain"
                   />
-                </div>
-                <div className="text-[11px] font-mono font-medium text-slate-500 break-all px-2 select-all">
-                  {getDisplayReviewLink(selectedPrintQr.review_link)}
                 </div>
                 <div className="text-xs font-bold text-slate-800">
                   ⭐⭐⭐⭐⭐ Google Reviews Destination
