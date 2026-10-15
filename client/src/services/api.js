@@ -208,5 +208,19 @@ export const api = {
   getAutomationStatus: () => request('/automation/status'),
   getJobHistory: (params = '') => request(`/automation/history${params}`),
   triggerJobRun: (jobType, payload = {}) => request(`/automation/jobs/${jobType}/run`, { method: 'POST', body: JSON.stringify(payload) }),
-  triggerAllJobs: (payload = {}) => request('/automation/run-all', { method: 'POST', body: JSON.stringify(payload) })
+  triggerAllJobs: (payload = {}) => request('/automation/run-all', { method: 'POST', body: JSON.stringify(payload) }),
+
+  // Google Trends Intelligence Pro
+  getTrendExplore: (params = '') => request(`/trends/explore${params}`),
+  getTrendCompare: (params = '') => request(`/trends/compare${params}`),
+  getEmergingTrends: (geo = 'IN') => request(`/trends/emerging?geo=${geo}`),
+  getTrendRegions: (params = '') => request(`/trends/regions${params}`),
+  getYouTubeTrends: (params = '') => request(`/trends/youtube${params}`),
+  getTrendForecast: (params = '') => request(`/trends/forecast${params}`),
+  generateTrendAiInsights: (payload) => request('/trends/ai-insights', { method: 'POST', body: JSON.stringify(payload) }),
+  getTrendWatchlists: () => request('/trends/watchlists'),
+  addTrendWatchlist: (payload) => request('/trends/watchlists', { method: 'POST', body: JSON.stringify(payload) }),
+  deleteTrendWatchlist: (id) => request(`/trends/watchlists/${id}`, { method: 'DELETE' }),
+  getTrendContentIdeas: () => request('/trends/content-ideas'),
+  createTrendContentIdea: (payload) => request('/trends/content-ideas', { method: 'POST', body: JSON.stringify(payload) })
 };

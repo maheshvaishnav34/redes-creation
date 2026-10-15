@@ -20,6 +20,7 @@ import {
   Flame,
   Globe2,
   Zap,
+  TrendingUp,
   X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -49,6 +50,7 @@ export const Sidebar = ({ mobileOpen, setMobileOpen }) => {
     {
       group: 'Local SEO & Search',
       items: [
+        { label: 'Trends Intelligence', path: '/trends', icon: TrendingUp, badge: 'Live Pro' },
         { label: 'Keyword Engine', path: '/keywords', icon: Search },
         { label: 'Geo-Grid Heatmap', path: '/geo-grid', icon: MapPin, highlight: true },
         { label: 'Local SEO Audit', path: '/seo', icon: Sparkles },

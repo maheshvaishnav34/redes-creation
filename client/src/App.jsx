@@ -29,6 +29,7 @@ import BillingPage from './pages/BillingPage.jsx';
 import PlansPage from './pages/PlansPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import AdminPage from './pages/AdminPage.jsx';
+import TrendsPage from './pages/TrendsPage.jsx';
 
 // Protected Route Guard
 const ProtectedRoute = ({ children }) => {
@@ -99,6 +100,7 @@ export default function App() {
           <Route path="/review-campaigns" element={<ReviewCampaignsPage />} />
           <Route path="/review-campaigns/:id" element={<ReviewCampaignsPage />} />
           <Route path="/keywords" element={<KeywordsPage />} />
+          <Route path="/trends" element={<TrendsPage />} />
           <Route path="/geo-grid" element={<GeoGridPage />} />
           <Route path="/seo" element={<SeoAuditPage />} />
           <Route path="/competitors" element={<CompetitorsPage />} />

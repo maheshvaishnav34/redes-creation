@@ -30,6 +30,7 @@ import billingRoutes from './modules/billing/billing.routes.js';
 import notificationRoutes from './modules/notifications/notifications.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
 import automationRoutes from './modules/automation/automation.routes.js';
+import trendsRoutes from './modules/trends/trends.routes.js';
 
 import { errorHandler } from './middleware/errorHandler.js';
 import { prisma } from './config/database.js';
@@ -120,6 +121,8 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/automation', automationRoutes);
 app.use('/api/v1/jobs', automationRoutes);
+app.use('/api/v1/trends', trendsRoutes);
+app.use('/api/trends', trendsRoutes);
 
 // Serve React Frontend in Production
 if (isProduction) {
