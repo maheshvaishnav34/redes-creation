@@ -480,13 +480,22 @@ export async function analyzeReviewWithAI({
   location,
   reviewerName
 }) {
-  const grokKey = (process.env.GROK_API_KEY || process.env.XAI_API_KEY || process.env.OPENAI_API_KEY || '').trim();
-  const grokUrl = process.env.GROK_API_URL || 'https://api.x.ai/v1/chat/completions';
-  const grokModel = process.env.GROK_MODEL || process.env.OPENAI_MODEL || 'grok-2-latest';
+  // 1. Resolve active AI key & endpoint: Prefer dedicated xAI if available, else use active Groq Cloud
+  const rawGrokKey = (process.env.GROK_API_KEY || process.env.XAI_API_KEY || process.env.OPENAI_API_KEY || '').trim();
+  const hasDedicatedGrok = rawGrokKey.length > 5 && !rawGrokKey.includes('your_grok_api_key_here');
+  
+  const groqKey = (process.env.GROQ_API_KEY || '').trim();
+  const hasGroq = groqKey.length > 5 && !groqKey.startsWith('gsk_mock');
 
-  // If Grok (xAI) or OpenAI API Key is available, invoke Grok API
-  const hasGrokKey = grokKey.length > 5 && !grokKey.includes('your_grok_api_key_here');
-  if (hasGrokKey) {
+  const activeKey = hasDedicatedGrok ? rawGrokKey : (hasGroq ? groqKey : null);
+  const activeUrl = hasDedicatedGrok 
+    ? (process.env.GROK_API_URL || 'https://api.x.ai/v1/chat/completions')
+    : 'https://api.groq.com/openai/v1/chat/completions';
+  const activeModel = hasDedicatedGrok
+    ? (process.env.GROK_MODEL || process.env.OPENAI_MODEL || 'grok-2-latest')
+    : (process.env.GROQ_MODEL || 'openai/gpt-oss-120b');
+
+  if (activeKey) {
     const userPrompt = buildUserPrompt({
       businessName,
       businessCategory,
@@ -503,14 +512,14 @@ export async function analyzeReviewWithAI({
     });
 
     try {
-      const response = await fetch(grokUrl, {
+      const response = await fetch(activeUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${grokKey}`
+          'Authorization': `Bearer ${activeKey}`
         },
         body: JSON.stringify({
-          model: grokModel,
+          model: activeModel,
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content: userPrompt }
@@ -527,9 +536,12 @@ export async function analyzeReviewWithAI({
           const parsedJson = JSON.parse(rawContent);
           return validateAndNormalizeAnalysis(parsedJson, { reviewText, rating, businessName });
         }
+      } else {
+        const errBody = await response.text();
+        console.warn(`[AI_ANALYSIS] ${hasDedicatedGrok ? 'Grok' : 'Groq'} returned non-OK (${response.status}):`, errBody);
       }
-    } catch (grokErr) {
-      console.warn('[AI_ANALYSIS] Grok analysis notice:', grokErr.message);
+    } catch (aiErr) {
+      console.warn(`[AI_ANALYSIS] ${hasDedicatedGrok ? 'Grok' : 'Groq'} analysis notice:`, aiErr.message);
     }
   }
 

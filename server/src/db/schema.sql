@@ -636,5 +636,84 @@ CREATE TABLE IF NOT EXISTS api_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_api_logs_workspace ON api_logs(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_api_logs_service ON api_logs(service);
-CREATE INDEX IF NOT EXISTS idx_api_logs_created ON api_logs(created_at);
 
+-- 36. GOOGLE ANALYTICS CONNECTIONS (OAuth Token Storage)
+CREATE TABLE IF NOT EXISTS analytics_connections (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+    account_email VARCHAR(255) NOT NULL,
+    account_name VARCHAR(255),
+    access_token TEXT NOT NULL,
+    refresh_token TEXT NOT NULL,
+    token_expiry TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(50) DEFAULT 'connected', -- connected, expired, revoked, error, disconnected
+    scopes TEXT DEFAULT 'https://www.googleapis.com/auth/analytics.readonly',
+    last_sync_at TIMESTAMP WITH TIME ZONE,
+    last_error TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 37. GOOGLE ANALYTICS 4 PROPERTIES
+CREATE TABLE IF NOT EXISTS analytics_properties (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    connection_id UUID NOT NULL REFERENCES analytics_connections(id) ON DELETE CASCADE,
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    business_id UUID REFERENCES business_locations(id) ON DELETE SET NULL,
+    client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+    ga4_account_id VARCHAR(100) NOT NULL,
+    ga4_account_name VARCHAR(255),
+    ga4_property_id VARCHAR(100) NOT NULL,
+    display_name VARCHAR(255) NOT NULL,
+    website_url TEXT,
+    time_zone VARCHAR(100) DEFAULT 'UTC',
+    currency_code VARCHAR(10) DEFAULT 'USD',
+    industry_category VARCHAR(100),
+    is_primary BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 38. GOOGLE ANALYTICS REPORT CACHE
+CREATE TABLE IF NOT EXISTS analytics_report_cache (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    property_id UUID NOT NULL REFERENCES analytics_properties(id) ON DELETE CASCADE,
+    report_type VARCHAR(50) NOT NULL,
+    date_range VARCHAR(50) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    metrics_data JSONB NOT NULL,
+    comparison_data JSONB,
+    cached_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    CONSTRAINT uq_property_report_range UNIQUE (property_id, report_type, date_range, start_date, end_date)
+);
+
+-- 39. GOOGLE ANALYTICS CONFIGURED KEY EVENTS & LEADS
+CREATE TABLE IF NOT EXISTS analytics_event_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    property_id UUID NOT NULL REFERENCES analytics_properties(id) ON DELETE CASCADE,
+    event_name VARCHAR(100) NOT NULL,
+    display_label VARCHAR(150) NOT NULL,
+    category VARCHAR(50) DEFAULT 'lead', -- lead, engagement, ecommerce, custom
+    is_key_event BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 40. GOOGLE ANALYTICS AUDIT LOGS
+CREATE TABLE IF NOT EXISTS analytics_audit_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    action VARCHAR(100) NOT NULL,
+    actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    property_id UUID,
+    details JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_analytics_conn_workspace ON analytics_connections(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_prop_workspace ON analytics_properties(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_prop_business ON analytics_properties(business_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_cache_lookup ON analytics_report_cache(property_id, report_type, date_range);

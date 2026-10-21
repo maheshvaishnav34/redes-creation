@@ -5,6 +5,7 @@ import {
   MessageSquare, 
   MapPin, 
   Sparkles, 
+  Star,
   Menu 
 } from 'lucide-react';
 import { Sidebar } from './Sidebar.jsx';
@@ -18,25 +19,25 @@ export const AppLayout = () => {
 
   const mobileNavItems = [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { label: 'Reviews', path: '/reviews', icon: MessageSquare, badge: '6' },
+    { label: 'Reviews', path: '/google-reviews', icon: Star },
     { label: 'Geo-Grid', path: '/geo-grid', icon: MapPin },
-    { label: 'AI Center', path: '/ai-center', icon: Sparkles, badge: '2' },
+    { label: 'AI Center', path: '/ai-center', icon: Sparkles },
   ];
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 transition-colors">
+    <div className="flex min-h-screen w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors m-0 p-0">
       {/* Sidebar (Desktop Persistent & Mobile Drawer) */}
       <Sidebar mobileOpen={mobileSidebarOpen} setMobileOpen={setMobileSidebarOpen} />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+      <div className="flex-1 flex flex-col min-w-0 w-full m-0 p-0">
         <Header
           onOpenCommandPalette={() => setCommandPaletteOpen(true)}
           onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
         />
 
-        {/* Main Content with bottom padding on mobile for the fixed Bottom Nav */}
-        <main className="flex-1 p-3.5 sm:p-5 lg:p-8 pb-24 lg:pb-8 max-w-7xl w-full mx-auto animate-in fade-in duration-200">
+        {/* Main Content with clean top spacing and bottom padding on mobile for the fixed Bottom Nav */}
+        <main className="flex-1 min-w-0 overflow-x-hidden px-3.5 sm:px-6 lg:px-8 pt-3.5 sm:pt-4 lg:pt-5 pb-24 lg:pb-10 max-w-7xl w-full mx-auto animate-in fade-in duration-200">
           <Outlet />
         </main>
       </div>
@@ -44,7 +45,7 @@ export const AppLayout = () => {
       {/* Mobile Sticky Bottom Navigation Bar (Visible only on screens < lg) */}
       <nav 
         aria-label="Mobile Navigation"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200/90 px-2 py-1.5 flex items-center justify-around shadow-lg transition-transform"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200/90 px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-lg transition-transform"
       >
         {mobileNavItems.map((item) => {
           const Icon = item.icon;

@@ -1,6 +1,8 @@
 import { query } from '../../config/db.js';
 import { logAudit } from '../../middleware/auditLogger.js';
 import { getBusinessIntelligenceProfile, getActivePrompt, compileTemplate } from '../ai/promptRegistry.js';
+import { computeEvidenceBasedSeoAudit, analyzeReviewSeoLanguage } from './seo.service.js';
+import { openAIService } from '../ai/openai.service.js';
 
 export const getLatestAudit = async (req, res, next) => {
   try {
@@ -41,7 +43,7 @@ export const runNewAudit = async (req, res, next) => {
   try {
     const businessId = req.body.businessId || req.businessId;
 
-    // Fetch live business context
+    // Fetch live business context & profile
     const bizRes = await query(
       `SELECT b.*, bp.services, bp.brand_voice
        FROM business_locations b
@@ -51,11 +53,44 @@ export const runNewAudit = async (req, res, next) => {
     );
     const biz = bizRes.rows[0] || {};
 
-    const overallScore = Math.floor(82 + Math.random() * 8);
-    const gbpScore = 90;
-    const localSignals = 78;
-    const contentScore = 84;
-    const reviewScore = 88;
+    // Fetch reviews
+    const reviewsRes = await query(
+      `SELECT rating, sentiment, review_text, reply_text, created_at FROM reviews WHERE business_id = $1`,
+      [businessId]
+    );
+    const reviews = reviewsRes.rows || [];
+
+    // Fetch tracked keywords
+    const keywordsRes = await query(
+      `SELECT keyword, intent, current_rank FROM keywords WHERE business_id = $1`,
+      [businessId]
+    );
+    const trackedKeywords = keywordsRes.rows || [];
+
+    // Fetch latest Geo-Grid scan
+    const geoRes = await query(
+      `SELECT visibility_percentage, average_rank FROM geo_grids WHERE business_id = $1 ORDER BY scan_date DESC LIMIT 1`,
+      [businessId]
+    );
+    const latestGeoGrid = geoRes.rows[0] || null;
+
+    // Execute evidence-based SEO audit computation
+    const auditComputation = computeEvidenceBasedSeoAudit({
+      business: biz,
+      profile: { services: biz.services },
+      reviews,
+      trackedKeywords,
+      latestGeoGrid
+    });
+
+    const {
+      overallScore,
+      gbpScore,
+      localSignals,
+      contentScore,
+      reviewScore,
+      checks: freshChecks
+    } = auditComputation;
 
     const newAudit = await query(
       `INSERT INTO seo_audits (
@@ -66,71 +101,22 @@ export const runNewAudit = async (req, res, next) => {
     );
     const auditId = newAudit.rows[0].id;
 
-    // Generate fresh audit checks
-    const freshChecks = [
-      {
-        cat: 'gbp',
-        name: 'Google Business Profile Completeness & Category',
-        status: 'passed',
-        severity: 'low',
-        evidence: `Primary and secondary categories matched for ${biz.name}. Profile verification active.`,
-        why: 'Google 3-Pack heavily weighs verified primary category matching.',
-        rec: 'Maintain regular updates to business hours and attributes.'
-      },
-      {
-        cat: 'services',
-        name: 'Structured Services Catalog Alignment',
-        status: 'warning',
-        severity: 'high',
-        evidence: 'Services listed on website do not completely match itemized GBP services.',
-        why: 'Explicit GBP service items trigger matching for conversational queries.',
-        rec: 'Synchronize top 5 core service offerings with itemized prices into GBP service catalog.'
-      },
-      {
-        cat: 'posts',
-        name: 'Google Post Activity & Freshness',
-        status: 'warning',
-        severity: 'medium',
-        evidence: 'No active Google Post published within the last 14 days.',
-        why: 'Active posts improve search snippet CTR and demonstrate active operational status.',
-        rec: 'Publish a weekly update post with a high-resolution photo and direct Call/Booking CTA.'
-      },
-      {
-        cat: 'reviews',
-        name: 'Review Velocity and Unanswered Complaint Buffer',
-        status: 'passed',
-        severity: 'low',
-        evidence: 'Response rate exceeds 92%. Review velocity is healthy at 24+ reviews/month.',
-        why: 'Active response speed keeps customer churn low and improves algorithm engagement scores.',
-        rec: 'Maintain automated workflows for 5-star reviews while routing complaints to managers.'
-      },
-      {
-        cat: 'nap',
-        name: 'NAP Consistency Across Core Citations',
-        status: 'passed',
-        severity: 'low',
-        evidence: `Address (${biz.address || 'Address'}) and Phone match across verified platforms.`,
-        why: 'Inconsistent NAP can split citation authority and damage Google Maps ranking.',
-        rec: 'Perform quarterly automated citation audits.'
-      }
-    ];
-
     for (const c of freshChecks) {
       await query(
         `INSERT INTO seo_checks (seo_audit_id, category, check_name, status, severity, evidence, why_it_matters, recommendation)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [auditId, c.cat, c.name, c.status, c.severity, c.evidence, c.why, c.rec]
+        [auditId, c.category, c.check_name, c.status, c.severity, c.evidence, c.why_it_matters, c.recommendation]
       );
     }
 
     // Record job execution
     await query(
       `INSERT INTO system_jobs (job_type, status, items_processed, details)
-       VALUES ('local_seo_audit', 'completed', 5, $1)`,
-      [JSON.stringify({ auditId, overallScore })]
+       VALUES ('local_seo_audit', 'completed', $1, $2)`,
+      [freshChecks.length, JSON.stringify({ auditId, overallScore, gbpScore, localSignals, reviewScore })]
     );
 
-    await logAudit(req.workspaceId, req.user.id, 'SEO_AUDIT_EXECUTED', 'seo_audits', auditId, { score: overallScore });
+    await logAudit(req.workspaceId, req.user?.id || null, 'SEO_AUDIT_EXECUTED', 'seo_audits', auditId, { score: overallScore });
 
     res.status(201).json({
       success: true,
@@ -447,6 +433,35 @@ export const getGrowthEngineData = async (req, res, next) => {
         actionUrl: biz.website || 'https://google.com'
       }
     ];
+
+    // Real-Time Groq AI Post Generation for top seasonal hook
+    try {
+      const livePost = await openAIService.executeChatCompletion({
+        systemPrompt: `You are an expert Google Business Profile copywriter. Generate 1 high-converting seasonal Google Post for "${biz.business_name}" (${biz.subcategory_name || 'Hospitality'}, ${biz.city}). Output valid JSON ONLY with format:
+{ "headline": "Catchy headline", "copy": "Engaging 2-sentence post copy with local keywords", "imageIdea": "Visual scene idea", "cta": "Book Now", "ctaType": "book" }`,
+        userPrompt: 'Generate the Google Post JSON.'
+      });
+
+      if (livePost?.content) {
+        const cleanJson = livePost.content.replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(cleanJson);
+        if (parsed.headline && parsed.copy) {
+          googlePosts.unshift({
+            id: 'post_live_ai',
+            type: '🔥 Live AI Seasonal Surge',
+            badge: 'AI Generated',
+            headline: parsed.headline,
+            copy: parsed.copy,
+            imageIdea: parsed.imageIdea || 'Crisp high-resolution hero shot',
+            cta: parsed.cta || 'Book Now',
+            ctaType: parsed.ctaType || 'book',
+            actionUrl: biz.website || 'https://google.com'
+          });
+        }
+      }
+    } catch (aiErr) {
+      console.warn('[SEO_AI] Live post generation notice:', aiErr.message);
+    }
 
     // 7. Review Velocity & Response-Rate SLA Monitoring
     const velocityAndSla = {

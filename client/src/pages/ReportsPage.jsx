@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   FileText,
   Printer,
@@ -14,13 +15,20 @@ import {
   Plus,
   X,
   ShieldCheck,
-  RefreshCw
+  RefreshCw,
+  Layers
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { PlatformExecutiveSummaryView } from '../components/reports/PlatformExecutiveSummaryView.jsx';
 
 export const ReportsPage = () => {
   const { activeBusiness } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get('tab') === 'operational' ? 'operational' : 'flywheel'
+  );
 
   const [reports, setReports] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
@@ -31,6 +39,14 @@ export const ReportsPage = () => {
   // Form
   const [reportTitle, setReportTitle] = useState('');
   const [reportType, setReportType] = useState('executive');
+
+  // Keep tab synced with query parameter if changed externally
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'operational' || tabParam === 'flywheel') {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   const fetchReports = async () => {
     try {
@@ -110,10 +126,47 @@ export const ReportsPage = () => {
         </div>
       </div>
 
-      {/* Main Layout: Reports List on left, Selected Report Document on right */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* View Switcher Tabs */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2 print:hidden">
+        <button
+          onClick={() => {
+            setActiveTab('flywheel');
+            setSearchParams({ tab: 'flywheel' });
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            activeTab === 'flywheel'
+              ? 'bg-[#034bc0] text-white shadow-sm'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>⚡ Platform Growth Flywheel Architecture</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('operational');
+            setSearchParams({ tab: 'operational' });
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            activeTab === 'operational'
+              ? 'bg-[#034bc0] text-white shadow-sm'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>📋 Location Operational Archives ({reports.length})</span>
+        </button>
+      </div>
+
+      {activeTab === 'flywheel' ? (
+        <PlatformExecutiveSummaryView onSaveToArchives={fetchReports} />
+      ) : (
+        /* Main Layout: Reports List on left, Selected Report Document on right */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Side: Past Reports Selector */}
         <div className="lg:col-span-4 p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3 print:hidden">
+
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <span className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Report Archives</span>
             <span className="text-xs text-slate-500 font-bold">{reports.length} generated</span>
@@ -433,11 +486,12 @@ export const ReportsPage = () => {
           )}
         </div>
       </div>
+      )}
 
       {/* Generate Report Modal */}
       {generateModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-extrabold text-slate-900">Generate Executive Report</h3>
               <button onClick={() => setGenerateModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -464,6 +518,7 @@ export const ReportsPage = () => {
                   onChange={(e) => setReportType(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#034bc0]"
                 >
+                  <option value="flywheel">⚡ Autonomous Flywheel Executive Briefing</option>
                   <option value="executive">Monthly Executive Report</option>
                   <option value="weekly">Weekly Operational Summary</option>
                   <option value="seo">Local SEO & Geo-Grid Audit Brief</option>

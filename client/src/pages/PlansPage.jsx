@@ -314,7 +314,7 @@ export default function PlansPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm">
+          <table className="w-full min-w-[600px] text-left text-xs sm:text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-slate-500 font-bold">
                 <th className="pb-3 text-slate-900">Feature Breakdown</th>

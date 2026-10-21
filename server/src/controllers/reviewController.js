@@ -138,11 +138,22 @@ export const reviewController = {
   },
 
   /**
-   * Analyzes an individual review: POST /api/reviews/:reviewId/analyze
+   * Analyzes an individual review: POST /api/reviews/:reviewId/analyze or POST /api/ai/reviews/analyze
    */
   async analyzeReview(req, res, next) {
     try {
-      const { reviewId } = req.params;
+      const reviewId = req.params.reviewId || req.params.id || req.body.reviewId;
+      if (!reviewId) {
+        // If called without specific review ID, analyze latest pending review
+        const latest = await prisma.review.findFirst({
+          orderBy: { reviewDate: 'desc' }
+        });
+        if (latest) {
+          const result = await sentimentService.analyzeReview(latest.id);
+          return res.json({ success: true, ...result });
+        }
+        return res.status(400).json({ error: 'Review ID required for analysis.' });
+      }
       const result = await sentimentService.analyzeReview(reviewId);
       res.json({
         success: true,
@@ -154,11 +165,21 @@ export const reviewController = {
   },
 
   /**
-   * Generates a review reply draft: POST /api/reviews/:reviewId/reply-draft
+   * Generates a review reply draft: POST /api/reviews/:reviewId/reply-draft or POST /api/ai/reviews/reply-suggestion
    */
   async generateReplyDraft(req, res, next) {
     try {
-      const { reviewId } = req.params;
+      const reviewId = req.params.reviewId || req.params.id || req.body.reviewId;
+      if (!reviewId) {
+        const latest = await prisma.review.findFirst({
+          orderBy: { reviewDate: 'desc' }
+        });
+        if (latest) {
+          const result = await replyService.generateReplyDraft(latest.id);
+          return res.json({ success: true, ...result });
+        }
+        return res.status(400).json({ error: 'Review ID required for reply draft generation.' });
+      }
       const result = await replyService.generateReplyDraft(reviewId);
       res.json({
         success: true,
@@ -170,11 +191,11 @@ export const reviewController = {
   },
 
   /**
-   * Publishes an approved reply: POST /api/reviews/:reviewId/publish-reply
+   * Publishes an approved reply: POST /api/reviews/:reviewId/publish-reply or POST /api/reviews/:id/reply
    */
   async publishReply(req, res, next) {
     try {
-      const { reviewId } = req.params;
+      const reviewId = req.params.reviewId || req.params.id || req.body.reviewId;
       const { replyText } = req.body;
 
       if (!replyText || replyText.trim().length < 2) {
@@ -184,8 +205,18 @@ export const reviewController = {
         });
       }
 
+      if (!reviewId) {
+        return res.status(400).json({ error: 'Review ID required to submit reply.' });
+      }
+
       // Check review
-      const review = await prisma.review.findUnique({ where: { id: reviewId } });
+      let review = null;
+      try {
+        review = await prisma.review.findUnique({ where: { id: reviewId } });
+      } catch {
+        review = await prisma.review.findFirst({ where: { gbp_review_id: reviewId } });
+      }
+
       if (!review) {
         return res.status(404).json({ error: 'Review not found.' });
       }
@@ -195,8 +226,8 @@ export const reviewController = {
         data: {
           review_id: review.id,
           response_text: replyText,
-          tone: 'Professional',
-          generated_by_ai: true,
+          tone: req.body.tone || 'Professional',
+          generated_by_ai: req.body.generated_by_ai !== false,
           published_at: new Date(),
         },
       });

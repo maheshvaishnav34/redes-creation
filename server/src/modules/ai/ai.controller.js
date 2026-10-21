@@ -2,6 +2,7 @@ import { query } from '../../config/db.js';
 import { logAudit } from '../../middleware/auditLogger.js';
 import { getBusinessIntelligenceProfile, getActivePrompt, compileTemplate } from './promptRegistry.js';
 import { openAIService } from './openai.service.js';
+import { trendsProvider } from '../trends/trends.provider.js';
 
 export const getApprovalQueue = async (req, res, next) => {
   try {
@@ -146,6 +147,7 @@ export const chatAssistant = async (req, res, next) => {
     let measuredData = {};
     let recommendations = [];
 
+    // 1. Compute default analytical telemetry for metrics panel
     if (q.includes('what changed') || q.includes('this week') || q.includes('today')) {
       measuredData = {
         'Average Rating': Number(rStat.avg_rating || 4.8).toFixed(1) + ' ★',
@@ -153,27 +155,19 @@ export const chatAssistant = async (req, res, next) => {
         'Keywords Dropped': `-${kStat.dropped || 1} rankings`,
         'Pending AI Approvals': `${rStat.pending_approvals || 2} reviews`
       };
-      reply = `Here is your operations summary for **${biz.name || 'your business'}**:\n\n` +
-              `• **Local Rankings**: ${kStat.improved || 2} keywords improved their position on Google Maps, led by *"best fine dining restaurant ahmedabad"* now at **#2**.\n` +
-              `• **Reviews & Sentiment**: You currently maintain an average rating of **${Number(rStat.avg_rating || 4.8).toFixed(1)} ★** across ${rStat.total_reviews} reviews.\n` +
-              `• **Action Required**: There are **${rStat.pending_approvals || 2} drafted AI replies** waiting for your approval in the Approval Center (including 1 critical customer concern).`;
       recommendations = [
-        'Review the 2 pending approval drafts to maintain your 94% response speed SLA.',
-        'Post a weekly Google Update highlighting your top-ranked signature dish.'
+        'Review pending approval drafts to maintain high response speed.',
+        'Post a weekly Google update highlighting your signature offering.'
       ];
     } else if (q.includes('review') || q.includes('attention') || q.includes('complaint')) {
       measuredData = {
-        'Critical Reviews': '1 review (Dr. Sunita Rao - peanut allergy concern)',
-        'Mixed Reviews': '1 review (Nikhil Trivedi - 35min wait time)',
-        'Unanswered Queue': `${rStat.pending_approvals || 2} reviews`
+        'Total Reviews': `${rStat.total_reviews || 0} reviews`,
+        'Average Rating': `${Number(rStat.avg_rating || 4.8).toFixed(1)} ★`,
+        'Pending Approvals': `${rStat.pending_approvals || 0} drafts`
       };
-      reply = `Review Intelligence highlights two reviews requiring managerial attention:\n\n` +
-              `1. **Dr. Sunita Rao (1★ - Critical)**: Mentions a severe peanut allergy issue. A formal safety response draft is queued in your Approval Center, and an urgent investigation task has been assigned to Priya Iyer.\n` +
-              `2. **Manish Parekh (2★)**: Experienced a 45-minute delay on Sunday evening during peak rush. An empathetic correction draft is ready for approval.\n\n` +
-              `*AI Interpretation*: Weekend main course delays are emerging as a recurring complaint (3 mentions in the past 30 days).`;
       recommendations = [
-        'Call Dr. Sunita Rao directly to close the safety loop.',
-        'Deploy a secondary valet/kitchen expedite runner during Saturday & Sunday dinner peaks.'
+        'Respond to lowest rated reviews within 24 hours to recover guests.',
+        'Incorporate target keywords into 5-star review thank-you notes.'
       ];
     } else if (q.includes('keyword') || q.includes('ranking') || q.includes('visibility')) {
       measuredData = {
@@ -181,60 +175,62 @@ export const chatAssistant = async (req, res, next) => {
         'Keywords in Top 3': `${kStat.top_3 || 4} terms`,
         'Geo-Grid Visibility': '78.4% (5km radius)'
       };
-      reply = `Your local search visibility is performing exceptionally well in Western Ahmedabad:\n\n` +
-              `• *"saffron fine dine ahmedabad"*: **#1** (Defending brand dominance)\n` +
-              `• *"best fine dining restaurant ahmedabad"*: **#2** (+2 positions this week)\n` +
-              `• *"restaurants near sg highway bodakdev"*: **#3**\n` +
-              `• *"best dal makhani in ahmedabad"*: **#1** (Surging monthly searches)`;
       recommendations = [
-        'Target "corporate lunch buffet sg highway" (currently rank #5) with a dedicated weekday offer post.',
-        'Add structured GBP service items for banquet hall catering.'
-      ];
-    } else if (q.includes('competitor') || q.includes('compete')) {
-      measuredData = {
-        'Top Competitors Tracked': '3 (Royal Treat, The Grand Bhagwati, Under The Neem Tree)',
-        'Visibility Leader': 'The Grand Bhagwati (82.0% visibility with 2,890 reviews)'
-      };
-      reply = `Competitor Intelligence comparison reveals a key strategic gap:\n\n` +
-              `• **The Grand Bhagwati** dominates total review volume (2,890 reviews), giving them high domain authority for broad banquet queries.\n` +
-              `• **Your Competitive Advantage**: ${biz.name} has a superior average rating (**4.8★** vs 4.2★) and a 3x faster review response velocity (2.4 hours vs 48 hours).\n` +
-              `• **Theme Opportunity**: Competitors receive frequent complaints regarding banquet wait times and parking, which you can contrast in your marketing.`;
-      recommendations = [
-        'Promote complimentary valet parking and dedicated private dining rooms.',
-        'Run your QR review campaign on dessert tables to build review velocity.'
+        'Target surging near-me queries with localized service updates.',
+        'Add structured service items to your Google Business Profile.'
       ];
     } else {
       measuredData = {
-        'Business': biz.name || 'Redes Creation',
-        'Industry': biz.industry_id || 'Hospitality',
-        'Open Tasks': `${tStat.open_tasks || 3} pending tasks`
+        'Business': biz.name || 'My Business',
+        'Industry': biz.industry_name || biz.industry_id || 'Hospitality',
+        'Average Rating': `${Number(rStat.avg_rating || 4.8).toFixed(1)} ★`,
+        'Open Tasks': `${tStat.open_tasks || 0} pending`
       };
-      reply = `Hello! I am your AI Local SEO & Reputation Assistant for **${biz.name}**.\n\n` +
-              `I have access to your live Business Intelligence Profile, Google review sync, local rank tracking, and competitor scans.\n\n` +
-              `Feel free to ask me about ranking movements, customer sentiment trends, competitor gaps, or draft responses!`;
       recommendations = [
-        'Ask: "What changed this week?"',
-        'Ask: "Which reviews need attention?"',
-        'Ask: "What are competitors doing differently?"'
+        'Ask: "How can I improve my 3-Pack rank this month?"',
+        'Ask: "Draft a high-converting festive Google Post"',
+        'Ask: "Analyze our competitor review sentiment gaps"'
       ];
     }
 
-    // Execute Grok / AI Versioned Prompt Generation (v2.2-production) & Atomic Usage Tracking
+    // 2. Execute Live Dynamic AI Generation via Groq Cloud (openai/gpt-oss-120b)
     let aiMeta = null;
     try {
-      aiMeta = await openAIService.generateWithVersionedPrompt({
-        module: 'assistant_chat',
-        businessId,
-        workspaceId: req.workspaceId,
-        variables: {
-          message,
-          open_tasks: tStat.open_tasks || 3,
-          average_rating: rStat.avg_rating || 4.8,
-          total_keywords: kStat.total_keywords || 8
-        }
+      const liveGen = await openAIService.executeChatCompletion({
+        systemPrompt: `You are an elite AI Local SEO, Reputation, and Business Growth Director for "${biz.name}" (${biz.industry_name || biz.industry_id || 'Business'}, located in ${biz.city || 'India'}).
+You have real-time access to the business profile, customer reviews, local rank telemetry, and competitor insights:
+- Business: ${biz.name} (${biz.city || 'Local Area'})
+- Live Rating: ${Number(rStat.avg_rating || 4.8).toFixed(1)} ★ (${rStat.total_reviews || 0} total reviews)
+- Tracked Keywords: ${kStat.total_keywords || 0} keywords (${kStat.top_3 || 0} in Top 3 Maps pack)
+- Open Operational Tasks: ${tStat.open_tasks || 0}
+- Brand Voice Tone: ${biz.brand_voice || 'Warm, authentic, and professional'}
+
+Instructions:
+1. Provide a direct, highly intelligent, and actionable answer to the user's question.
+2. Structure your response with clean markdown headings, bold points, and bulleted takeaways.
+3. Keep the advice practical and specific to their business niche and location.`,
+        userPrompt: message,
+        maxTokens: 750
       });
+
+      if (liveGen?.content && liveGen.content.length > 20) {
+        reply = liveGen.content;
+        aiMeta = {
+          content: liveGen.content,
+          model: liveGen.modelName,
+          tokensUsed: liveGen.tokensUsed,
+          isLiveApi: liveGen.isLiveApi
+        };
+      }
     } catch (aiErr) {
-      console.warn('[AI_CONTROLLER] Grok assistant generation notice:', aiErr.message);
+      console.warn('[AI_CONTROLLER] Live Groq assistant chat notice:', aiErr.message);
+    }
+
+    // Fallback if AI was unavailable
+    if (!reply) {
+      reply = `Hello! I am your AI Operations & Reputation Assistant for **${biz.name}**.\n\n` +
+              `I have access to your live Business Intelligence Profile, Google reviews sync, local rank tracking, and competitor scans.\n\n` +
+              `Feel free to ask me about ranking movements, customer sentiment trends, competitor gaps, or draft responses!`;
     }
 
     res.json({
@@ -242,9 +238,10 @@ export const chatAssistant = async (req, res, next) => {
       answer: reply,
       measuredData,
       recommendations,
-      promptVersion: aiMeta?.version || activePrompt.version,
-      modelUsed: aiMeta?.model || process.env.GROK_MODEL || 'grok-2-latest',
-      tokensUsed: aiMeta?.tokensUsed || 480,
+      promptVersion: activePrompt?.version || 'v2.3-production',
+      modelUsed: aiMeta?.model || 'openai/gpt-oss-120b',
+      tokensUsed: aiMeta?.tokensUsed || 380,
+      isLiveAi: Boolean(aiMeta?.isLiveApi),
       timestamp: new Date().toISOString()
     });
   } catch (err) {
@@ -261,6 +258,104 @@ export const listGenerations = async (req, res, next) => {
     );
 
     res.json({ success: true, generations: genRes.rows });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const generateTrendCampaign = async (req, res, next) => {
+  try {
+    const { topic, channel = 'gbp_post', tone = 'warm_luxury', customKeywords = [] } = req.body;
+    const businessId = req.body.businessId || req.businessId;
+    const biz = await getBusinessIntelligenceProfile(businessId);
+
+    const safeTopic = topic || 'Local Chef Specials';
+    const channelLabels = {
+      gbp_post: 'Google Business Profile Post',
+      social_media: 'Instagram & Facebook Local Campaign',
+      review_reply: 'Keyword-Enriched Review Reply Template',
+      sms_booster: 'SMS & WhatsApp Review Booster'
+    };
+
+    let headline = '';
+    let content = '';
+    let callToAction = 'Learn More';
+    let hashtags = [];
+    let keywordsTargeted = [safeTopic, biz.name, biz.city || 'local'].concat(customKeywords || []);
+
+    if (channel === 'gbp_post') {
+      headline = `Surge Offer: Experience ${safeTopic} at ${biz.name}!`;
+      content = `Craving the finest ${safeTopic.toLowerCase()} in ${biz.city || 'the city'}? At ${biz.name}, our culinary team crafts every dish with authentic ingredients and warm hospitality. Whether you're planning a family dinner or a corporate banquet, make your reservation today to taste what everyone is talking about!`;
+      callToAction = 'Book Reservation';
+      hashtags = [`#${safeTopic.replace(/\s+/g, '')}`, `#${(biz.city || 'Local').replace(/\s+/g, '')}Foodie`, `#${biz.name.replace(/\s+/g, '')}`];
+    } else if (channel === 'social_media') {
+      headline = `🔥 Now Trending: ${safeTopic} | Only at ${biz.name}`;
+      content = `Taste the sensation that's capturing everyone's attention! ✨\n\nOur signature ${safeTopic.toLowerCase()} is prepared fresh daily to elevate your dining experience. Tag someone who needs to try this with you this week! 🍽️🥂\n\n📍 Visit us at ${biz.address || biz.city || 'Western Ahmedabad'}\n📞 Call or DM to reserve your table.`;
+      callToAction = 'Share & Reserve';
+      hashtags = [`#${safeTopic.replace(/\s+/g, '')}`, `#Best${(biz.industry_id || 'Dining').replace(/\s+/g, '')}`, `#FoodieGram`, `#LocalSpot`];
+    } else if (channel === 'review_reply') {
+      headline = `SEO Reply Template Incorporating "${safeTopic}"`;
+      content = `Thank you so much for your visit and wonderful rating! We are delighted that you enjoyed your experience with us at ${biz.name}. As ${biz.city || 'our local community'} continues to celebrate ${safeTopic.toLowerCase()}, our team is dedicated to providing five-star service and memorable flavors. We look forward to welcoming you back soon!`;
+      callToAction = 'Apply to Review Inbox';
+    } else {
+      headline = `VIP Invite: Taste ${safeTopic} at ${biz.name}`;
+      content = `Hi there! We loved serving you at ${biz.name}. Have you tried our trending ${safeTopic.toLowerCase()} this season? Tap here to leave a quick 5-star Google review and unlock a complimentary dessert on your next visit: [Google Review Link]`;
+      callToAction = 'Send via SMS/WhatsApp';
+    }
+
+    // Try executing Grok API call if live key is available
+    let tokensUsed = 350;
+    try {
+      const liveGen = await openAIService.executeChatCompletion({
+        systemPrompt: `You are an expert local SEO copywriter and growth marketer. Generate a high-converting ${channelLabels[channel]} for ${biz.name} (${biz.industry_id}) in ${biz.city}. The post must seamlessly incorporate the trending search topic "${safeTopic}". Output directly in tone "${tone}".`,
+        userPrompt: `Generate the ${channelLabels[channel]} content. Keep it engaging, natural, and persuasive.`
+      });
+      if (liveGen?.content && liveGen.content.length > 50) {
+        content = liveGen.content;
+        tokensUsed = liveGen.tokensUsed;
+      }
+    } catch (e) {
+      console.warn('Grok live call note:', e.message);
+    }
+
+    // Log to ai_generations
+    try {
+      await query(
+        `INSERT INTO ai_generations (workspace_id, business_id, module, prompt_version, model_name, input_context, output_content, tokens_used, cost_usd, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          req.workspaceId || null,
+          businessId,
+          'trend_campaign_creator',
+          'v2.3-production',
+          'grok-2-latest',
+          JSON.stringify({ topic: safeTopic, channel, tone }),
+          content,
+          tokensUsed,
+          tokensUsed * 0.000005,
+          'completed'
+        ]
+      );
+    } catch (dbErr) {
+      console.warn('Failed to persist generation log:', dbErr.message);
+    }
+
+    res.json({
+      success: true,
+      campaign: {
+        headline,
+        content,
+        channel,
+        channelLabel: channelLabels[channel] || channel,
+        topic: safeTopic,
+        tone,
+        callToAction,
+        hashtags,
+        keywordsTargeted,
+        optimalTime: '5:30 PM - 7:30 PM (Peak Surge Window)',
+        estimatedReach: '2,500 - 8,000 local impressions'
+      }
+    });
   } catch (err) {
     next(err);
   }

@@ -1,4 +1,7 @@
+import QRCode from 'qrcode';
 import { query } from '../../config/db.js';
+import { getClientBaseUrl } from '../campaigns/campaigns.controller.js';
+
 
 export const getSystemHealth = async (req, res, next) => {
   try {
@@ -112,6 +115,102 @@ export const listAllLocations = async (req, res, next) => {
   }
 };
 
+export const createAdminLocation = async (req, res, next) => {
+  try {
+    const {
+      name, workspaceId, industryId = 'restaurant', subcategoryId,
+      address, city = 'Ahmedabad', country = 'India',
+      postalCode = '380054', phone, website, isPrimary = false,
+      healthScore = 90, placeId, googleReviewUrl, services = []
+    } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, error: 'Business location name is required' });
+    }
+
+    const targetWorkspaceId = workspaceId || req.workspaceId;
+
+    const locRes = await query(
+      `INSERT INTO business_locations (
+         workspace_id, name, industry_id, subcategory_id,
+         address, city, country, postal_code, phone, website,
+         is_primary, health_score
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING *`,
+      [
+        targetWorkspaceId, name.trim(), industryId, subcategoryId || null,
+        address || `${city} Main Commercial District`, city, country, postalCode,
+        phone || '+91 79 4890 5500', website || null,
+        Boolean(isPrimary), Number(healthScore) || 90
+      ]
+    );
+
+    const newLoc = locRes.rows[0];
+
+    // Seed profile
+    await query(
+      `INSERT INTO business_profiles (
+         business_id, identity, description, services, brand_voice,
+         onboarding_completed, onboarding_score
+       ) VALUES ($1, $2, $3, $4, 'Professional & Welcoming', TRUE, 100)
+       ON CONFLICT (business_id) DO NOTHING`,
+      [
+        newLoc.id,
+        `${newLoc.name}`,
+        `${newLoc.name} is a leading ${industryId} provider in ${city}.`,
+        JSON.stringify(services && services.length > 0 ? services : ['Professional Consultation', 'Customer Service'])
+      ]
+    );
+
+    // If google review or place ID provided
+    if (googleReviewUrl || placeId) {
+      await query(
+        `INSERT INTO google_locations (business_id, location_name, gbp_place_id, sync_status, updated_at)
+         VALUES ($1, $2, $3, 'synced', NOW())
+         ON CONFLICT (business_id) DO UPDATE
+         SET gbp_place_id = EXCLUDED.gbp_place_id, sync_status = 'synced', updated_at = NOW()`,
+        [newLoc.id, newLoc.name, placeId || null]
+      );
+    }
+
+    // Seed campaign & QR code
+    const slug = newLoc.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + newLoc.id.substring(0, 4);
+    const reviewLink = `${getClientBaseUrl()}/r/${slug}`;
+    let qrCodeData = '';
+    try {
+      qrCodeData = await QRCode.toDataURL(reviewLink, { width: 320, margin: 2 });
+    } catch (qrErr) {
+      console.warn('QR code generation error:', qrErr.message);
+    }
+
+    await query(
+      `INSERT INTO review_campaigns (
+         business_id, name, business_name, website, phone,
+         channel, message_template, target_audience,
+         google_review_url, post_review_enabled,
+         review_link, qr_code_data, status
+       ) VALUES ($1, $2, $3, $4, $5, 'qr', $6, 'All Customers', $7, TRUE, $8, $9, 'active')
+       ON CONFLICT DO NOTHING`,
+      [
+        newLoc.id,
+        `${newLoc.name} Official Review Drive`,
+        newLoc.name,
+        website || null,
+        phone || null,
+        `Welcome to ${newLoc.name}! Please leave your review:`,
+        googleReviewUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(newLoc.name + ' ' + city)}`,
+        reviewLink,
+        qrCodeData
+      ]
+    );
+
+    res.status(201).json({ success: true, location: newLoc });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
 export const updateAdminLocation = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -206,3 +305,72 @@ export const deleteAdminLocation = async (req, res, next) => {
     next(err);
   }
 };
+
+/**
+ * System-Wide Sync Health & Telemetry for Super Admins
+ */
+export const getSyncHealth = async (req, res, next) => {
+  try {
+    const hotelStats = await query(`
+      SELECT 
+        COUNT(*) as total_hotels,
+        COUNT(*) FILTER (WHERE google_place_id IS NOT NULL) as places_connected,
+        (SELECT COUNT(*) FROM google_connections WHERE status = 'connected') as gbp_oauth_connected,
+        (SELECT COUNT(*) FROM reviews) as total_stored_reviews
+      FROM business_locations
+    `);
+
+    const syncAudit = await query(`
+      SELECT 
+        COUNT(*) as total_sync_jobs_24h,
+        COUNT(*) FILTER (WHERE status = 'success') as successful_syncs_24h,
+        COUNT(*) FILTER (WHERE status = 'failed') as failed_syncs_24h,
+        COALESCE(SUM(reviews_imported), 0) as reviews_imported_24h,
+        COALESCE(AVG(duration_ms), 0) as avg_duration_ms
+      FROM google_sync_history
+      WHERE created_at >= NOW() - INTERVAL '24 hours'
+    `);
+
+    const recentFailures = await query(`
+      SELECT gsh.id, gsh.workspace_id, gsh.business_id, bl.name as hotel_name,
+             gsh.sync_type, gsh.status, gsh.error_message, gsh.created_at
+      FROM google_sync_history gsh
+      LEFT JOIN business_locations bl ON gsh.business_id = bl.id
+      WHERE gsh.status = 'failed'
+      ORDER BY gsh.created_at DESC
+      LIMIT 10
+    `);
+
+    const { reviewSyncQueue } = await import('../reviews/reviewSync.queue.js');
+    const activeJobsCount = reviewSyncQueue.activeJobs.size;
+    const queuedJobsCount = reviewSyncQueue.queue.length;
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      queueHealth: {
+        mode: reviewSyncQueue.isRedisMode ? 'BullMQ (Redis)' : 'In-Process Concurrency Queue',
+        concurrencyLimit: reviewSyncQueue.concurrencyLimit,
+        activeJobs: activeJobsCount,
+        queuedJobs: queuedJobsCount,
+      },
+      infrastructureTotals: {
+        totalHotels: parseInt(hotelStats.rows[0].total_hotels || 0, 10),
+        placesConnected: parseInt(hotelStats.rows[0].places_connected || 0, 10),
+        gbpOAuthConnected: parseInt(hotelStats.rows[0].gbp_oauth_connected || 0, 10),
+        totalStoredReviews: parseInt(hotelStats.rows[0].total_stored_reviews || 0, 10)
+      },
+      last24HoursTelemetry: {
+        totalSyncs: parseInt(syncAudit.rows[0].total_sync_jobs_24h || 0, 10),
+        successfulSyncs: parseInt(syncAudit.rows[0].successful_syncs_24h || 0, 10),
+        failedSyncs: parseInt(syncAudit.rows[0].failed_syncs_24h || 0, 10),
+        reviewsImported: parseInt(syncAudit.rows[0].reviews_imported_24h || 0, 10),
+        averageDurationMs: Math.round(Number(syncAudit.rows[0].avg_duration_ms || 0))
+      },
+      recentFailures: recentFailures.rows
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+

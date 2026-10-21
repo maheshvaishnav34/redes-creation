@@ -14,6 +14,7 @@ import CustomerFeedbackPage from './pages/CustomerFeedbackPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import BusinessIntelligencePage from './pages/BusinessIntelligencePage.jsx';
 import GoogleProfilePage from './pages/GoogleProfilePage.jsx';
+import GoogleReviewsDashboardPage from './pages/GoogleReviewsDashboardPage.jsx';
 import ReviewsPage from './pages/ReviewsPage.jsx';
 import ReviewCampaignsPage from './pages/ReviewCampaignsPage.jsx';
 import KeywordsPage from './pages/KeywordsPage.jsx';
@@ -23,6 +24,7 @@ import CompetitorsPage from './pages/CompetitorsPage.jsx';
 import AiCenterPage from './pages/AiCenterPage.jsx';
 import TasksPage from './pages/TasksPage.jsx';
 import AnalyticsPage from './pages/AnalyticsPage.jsx';
+import WebsiteAnalyticsPage from './pages/WebsiteAnalyticsPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
 import NotificationsPage from './pages/NotificationsPage.jsx';
 import BillingPage from './pages/BillingPage.jsx';
@@ -37,10 +39,10 @@ const ProtectedRoute = ({ children }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-xs font-semibold text-slate-400">Authenticating Session...</span>
+          <div className="w-10 h-10 border-4 border-[#034bc0] border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xs font-semibold text-slate-500">Authenticating Session...</span>
         </div>
       </div>
     );
@@ -52,6 +54,17 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
+  return children;
+};
+
+// Super Admin Protected Route Guard
+const SuperAdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  const isSuperAdmin = user && ['super_admin', 'owner'].includes(user.role?.toLowerCase());
+  if (!isSuperAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
   return children;
 };
 
@@ -95,6 +108,7 @@ export default function App() {
           <Route path="/business-intelligence" element={<BusinessIntelligencePage />} />
           <Route path="/google" element={<GoogleProfilePage />} />
           <Route path="/google/callback" element={<GoogleProfilePage />} />
+          <Route path="/google-reviews" element={<GoogleReviewsDashboardPage />} />
           <Route path="/reviews" element={<ReviewsPage />} />
           <Route path="/campaigns" element={<ReviewCampaignsPage />} />
           <Route path="/review-campaigns" element={<ReviewCampaignsPage />} />
@@ -107,13 +121,22 @@ export default function App() {
           <Route path="/ai-center" element={<AiCenterPage />} />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/website-analytics" element={<WebsiteAnalyticsPage />} />
+          <Route path="/website-analytics/callback" element={<WebsiteAnalyticsPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/billing" element={<BillingPage />} />
           <Route path="/plans" element={<PlansPage />} />
           <Route path="/upgrade" element={<PlansPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/admin" element={<AdminPage />} />
+          <Route 
+            path="/admin" 
+            element={
+              <SuperAdminRoute>
+                <AdminPage />
+              </SuperAdminRoute>
+            } 
+          />
         </Route>
 
         {/* Fallback */}

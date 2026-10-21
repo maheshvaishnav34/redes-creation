@@ -1,5 +1,13 @@
 import { query } from '../../config/db.js';
 import { logAudit } from '../../middleware/auditLogger.js';
+import {
+  discoverRealTimeKeywords,
+  fetchLiveGoogleSuggestions,
+  generateTopLevelKeywords,
+  evolveWeeklyKeywordsForBusiness,
+  getWeeklyEvolutionStatus,
+  getUnifiedFlywheelSummary
+} from './keywords.service.js';
 
 export const listKeywords = async (req, res, next) => {
   try {
@@ -52,9 +60,26 @@ export const listKeywords = async (req, res, next) => {
       [businessId]
     );
 
+    const enrichedKeywords = kwRes.rows.map(k => {
+      let tier = 'Tier 3';
+      let tier_label = 'Long-Tail / Intent';
+      if (k.is_primary || k.intent === 'local' || k.intent === 'near_me') {
+        tier = 'Tier 1';
+        tier_label = 'Top-Level Core';
+      } else if (k.intent === 'service' || k.intent === 'commercial') {
+        tier = 'Tier 2';
+        tier_label = 'Core Service';
+      }
+      return {
+        ...k,
+        tier,
+        tier_label
+      };
+    });
+
     res.json({
       success: true,
-      keywords: kwRes.rows,
+      keywords: enrichedKeywords,
       groups: groupsRes.rows,
       summary: summaryRes.rows[0]
     });
@@ -143,10 +168,12 @@ export const discoverSuggestions = async (req, res, next) => {
 
     // Load business intelligence profile, industry & existing keywords
     const bizRes = await query(
-      `SELECT b.name, b.city, b.industry_id, b.subcategory_id, bp.services, bp.target_keywords, i.name as industry_name
+      `SELECT b.name, b.city, b.industry_id, b.subcategory_id, bp.services, bp.target_keywords,
+              i.name as industry_name, sc.name as subcategory_name
        FROM business_locations b
        LEFT JOIN business_profiles bp ON b.id = bp.business_id
        LEFT JOIN industries i ON b.industry_id = i.id
+       LEFT JOIN industry_subcategories sc ON b.subcategory_id = sc.id
        WHERE b.id = $1`,
       [businessId]
     );
@@ -154,6 +181,7 @@ export const discoverSuggestions = async (req, res, next) => {
     const biz = bizRes.rows[0] || {};
     const city = biz.city || 'Ahmedabad';
     const industryName = biz.industry_name || 'Business';
+    const subcategoryName = biz.subcategory_name || '';
     const brandName = biz.name || 'Brand';
     
     // Normalize services
@@ -171,47 +199,38 @@ export const discoverSuggestions = async (req, res, next) => {
     const existingRes = await query(`SELECT keyword FROM keywords WHERE business_id = $1`, [businessId]);
     const existingKeywords = new Set(existingRes.rows.map(r => r.keyword.toLowerCase()));
 
-    // Generate comprehensive candidates across all 10 spec groups
-    const candidates = [
-      // 1. Primary / Core
-      { keyword: `best ${industryName.toLowerCase()} in ${city.toLowerCase()}`, group: 'Primary / Core', intent: 'local', relevance: 98, searchVolume: 4200, difficulty: 42, reason: 'High intent local commercial authority search' },
-      { keyword: `top rated ${industryName.toLowerCase()} ${city.toLowerCase()}`, group: 'Primary / Core', intent: 'local', relevance: 95, searchVolume: 3600, difficulty: 38, reason: 'Strong local Google 3-Pack discovery driver' },
-      
-      // 2. Near-Me / Proximity
-      { keyword: `${industryName.toLowerCase()} near me`, group: 'Near-Me Proximity', intent: 'near_me', relevance: 96, searchVolume: 6500, difficulty: 45, reason: 'Massive mobile high-intent geo-query' },
-      { keyword: `${services[0]?.toLowerCase() || industryName.toLowerCase()} near me open now`, group: 'Near-Me Proximity', intent: 'near_me', relevance: 92, searchVolume: 2900, difficulty: 34, reason: 'Immediate purchase and booking intent' },
+    // Execute real-time discovery (Google Suggest + Google Trends + 10 Group Taxonomy)
+    const discoveryResult = await discoverRealTimeKeywords({
+      businessName: brandName,
+      industryName,
+      subcategoryName,
+      city,
+      services,
+      existingKeywords
+    });
 
-      // 3. Service / Product Specific
-      { keyword: `${services[0]?.toLowerCase()} ${city.toLowerCase()}`, group: 'Service Specific', intent: 'service', relevance: 94, searchVolume: 2100, difficulty: 30, reason: `Matches core service offering "${services[0]}" from business profile` },
-      { keyword: `${services[1]?.toLowerCase() || services[0]?.toLowerCase()} specialist ${city.toLowerCase()}`, group: 'Service Specific', intent: 'service', relevance: 90, searchVolume: 1700, difficulty: 28, reason: 'Direct service search with low keyword difficulty' },
+    res.json({
+      success: true,
+      suggestions: discoveryResult.suggestions,
+      trendDemandScore: discoveryResult.trendDemandScore,
+      liveQueriesCount: discoveryResult.liveQueriesCount
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
-      // 4. Long-Tail
-      { keyword: `which is the best ${industryName.toLowerCase()} in ${city.toLowerCase()}`, group: 'Long-Tail Query', intent: 'long_tail', relevance: 88, searchVolume: 1200, difficulty: 22, reason: 'Conversational voice and mobile search query' },
-      { keyword: `affordable and trusted ${industryName.toLowerCase()} with high ratings`, group: 'Long-Tail Query', intent: 'long_tail', relevance: 85, searchVolume: 950, difficulty: 18, reason: 'Long-tail conversion query with weak competitor focus' },
-
-      // 5. Problem / Need-Based
-      { keyword: `how to find trusted ${industryName.toLowerCase()} in ${city.toLowerCase()}`, group: 'Problem / Need', intent: 'problem', relevance: 86, searchVolume: 1400, difficulty: 25, reason: 'Solves trust deficit for new local customers' },
-      { keyword: `urgent ${services[0]?.toLowerCase() || industryName.toLowerCase()} emergency ${city.toLowerCase()}`, group: 'Problem / Need', intent: 'problem', relevance: 89, searchVolume: 1100, difficulty: 20, reason: 'Immediate problem-solving demand with high conversion rate' },
-
-      // 6. Brand / Reputation
-      { keyword: `${brandName.toLowerCase()} reviews and ratings`, group: 'Brand Keywords', intent: 'brand', relevance: 99, searchVolume: 1800, difficulty: 15, reason: 'Direct branded verification query by warm prospects' },
-      { keyword: `${brandName.toLowerCase()} ${city.toLowerCase()} contact address`, group: 'Brand Keywords', intent: 'brand', relevance: 97, searchVolume: 1300, difficulty: 12, reason: 'High navigation intent leading directly to Google Maps navigation' },
-
-      // 7. Review-Theme
-      { keyword: `${industryName.toLowerCase()} with best customer service in ${city.toLowerCase()}`, group: 'Review Themes', intent: 'review_theme', relevance: 89, searchVolume: 1600, difficulty: 26, reason: 'Directly mirrors positive sentiment topics in your Google reviews' },
-      { keyword: `clean and hygienic ${industryName.toLowerCase()} ${city.toLowerCase()}`, group: 'Review Themes', intent: 'review_theme', relevance: 87, searchVolume: 1250, difficulty: 24, reason: 'Strong customer review praise theme' }
-    ];
-
-    // Filter out already tracked keywords and add opportunity score
-    const suggestions = candidates
-      .filter(c => !existingKeywords.has(c.keyword.toLowerCase()))
-      .map(c => ({
-        ...c,
-        opportunityScore: Math.min(99, Math.round((c.relevance * 0.6) + ((100 - c.difficulty) * 0.4)))
-      }))
-      .sort((a, b) => b.opportunityScore - a.opportunityScore);
-
-    res.json({ success: true, suggestions });
+/**
+ * Live Google Suggestion instant endpoint (for typing in search bars)
+ */
+export const getLiveSuggestions = async (req, res, next) => {
+  try {
+    const { q, geo = 'in' } = req.query;
+    if (!q || !q.trim()) {
+      return res.json({ success: true, suggestions: [] });
+    }
+    const suggestions = await fetchLiveGoogleSuggestions(q, geo);
+    res.json({ success: true, query: q, suggestions });
   } catch (err) {
     next(err);
   }
@@ -303,3 +322,182 @@ export const updateKeyword = async (req, res, next) => {
     next(err);
   }
 };
+
+/**
+ * Automatically Generate and Seed Top-Level Keywords (Tier 1 & Tier 2) for Business
+ */
+export const autoSeedTopKeywords = async (req, res, next) => {
+  try {
+    const businessId = req.body.businessId || req.businessId;
+
+    // Load business intelligence profile, industry & existing keywords
+    const bizRes = await query(
+      `SELECT b.name, b.city, b.industry_id, b.subcategory_id, bp.services,
+              i.name as industry_name, sc.name as subcategory_name
+       FROM business_locations b
+       LEFT JOIN business_profiles bp ON b.id = bp.business_id
+       LEFT JOIN industries i ON b.industry_id = i.id
+       LEFT JOIN industry_subcategories sc ON b.subcategory_id = sc.id
+       WHERE b.id = $1`,
+      [businessId]
+    );
+
+    const biz = bizRes.rows[0] || {};
+    const city = biz.city || 'Ahmedabad';
+    const industryName = biz.industry_name || 'Business';
+    const subcategoryName = biz.subcategory_name || '';
+    const brandName = biz.name || 'Brand';
+
+    // Normalize services
+    let services = [];
+    if (Array.isArray(biz.services)) {
+      services = biz.services;
+    } else if (typeof biz.services === 'string' && biz.services.trim()) {
+      try { services = JSON.parse(biz.services); } catch { services = biz.services.split(',').map(s => s.trim()); }
+    }
+
+    const topKeywords = await generateTopLevelKeywords({
+      businessName: brandName,
+      industryName,
+      subcategoryName,
+      city,
+      services
+    });
+
+    // Check existing keywords to avoid duplicates
+    const existingRes = await query(`SELECT id, keyword, is_primary FROM keywords WHERE business_id = $1`, [businessId]);
+    const existingSet = new Set(existingRes.rows.map(r => r.keyword.toLowerCase()));
+    const hasPrimary = existingRes.rows.some(r => r.is_primary);
+
+    // Get or create default group "Primary Core"
+    let groupRes = await query(`SELECT id FROM keyword_groups WHERE business_id = $1 AND name = 'Primary Core' LIMIT 1`, [businessId]);
+    let defaultGroupId = groupRes.rows[0]?.id;
+    if (!defaultGroupId) {
+      const createdGroup = await query(
+        `INSERT INTO keyword_groups (business_id, name, color) VALUES ($1, 'Primary Core', '#034bc0') RETURNING id`,
+        [businessId]
+      );
+      defaultGroupId = createdGroup.rows[0]?.id;
+    }
+
+    const insertedKeywords = [];
+
+    for (let i = 0; i < topKeywords.length; i++) {
+      const candidate = topKeywords[i];
+      if (existingSet.has(candidate.keyword.toLowerCase())) continue;
+
+      const shouldBePrimary = !hasPrimary && (candidate.isPrimary || i === 0);
+      const estimatedRank = Math.floor(1 + (i % 6));
+
+      const newKw = await query(
+        `INSERT INTO keywords (
+           business_id, group_id, keyword, intent, relevance, difficulty,
+           search_volume, current_rank, previous_rank, best_rank, is_primary,
+           status, opportunity_score, opportunity_reason, last_tracked_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $8, $10, 'approved', $11, $12, NOW())
+         RETURNING *`,
+        [
+          businessId,
+          defaultGroupId,
+          candidate.keyword.toLowerCase().trim(),
+          candidate.intent,
+          candidate.relevance,
+          candidate.difficulty,
+          candidate.searchVolume,
+          estimatedRank,
+          estimatedRank + 1,
+          shouldBePrimary,
+          Math.min(99, Math.round(candidate.relevance * 0.6 + (100 - candidate.difficulty) * 0.4)),
+          candidate.reason
+        ]
+      );
+
+      const kwObj = newKw.rows[0];
+      // Insert initial rank snapshot
+      await query(
+        `INSERT INTO keyword_rank_snapshots (keyword_id, rank, visibility_score) VALUES ($1, $2, $3)`,
+        [kwObj.id, estimatedRank, Math.max(10, 100 - estimatedRank * 8)]
+      );
+
+      insertedKeywords.push({
+        ...kwObj,
+        tier: candidate.tier,
+        tier_label: candidate.tier_label
+      });
+    }
+
+    await logAudit(req.workspaceId, req.user?.id || null, 'KEYWORDS_AUTO_SEEDED', 'keywords', null, {
+      count: insertedKeywords.length,
+      businessName: brandName,
+      city
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `Successfully auto-generated and seeded ${insertedKeywords.length} top-level keywords!`,
+      keywords: insertedKeywords,
+      totalSeeded: insertedKeywords.length
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getWeeklyEvolution = async (req, res, next) => {
+  try {
+    const businessId = req.params.businessId || req.businessId;
+    if (!businessId) {
+      return res.status(400).json({ success: false, error: 'Business ID required' });
+    }
+
+    const status = await getWeeklyEvolutionStatus(businessId);
+    res.json({
+      success: true,
+      evolution: status
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const triggerWeeklyEvolution = async (req, res, next) => {
+  try {
+    const businessId = req.body.businessId || req.businessId;
+    if (!businessId) {
+      return res.status(400).json({ success: false, error: 'Business ID required' });
+    }
+
+    const force = req.body.force !== false;
+    const result = await evolveWeeklyKeywordsForBusiness({
+      businessId,
+      force,
+      workspaceId: req.workspaceId
+    });
+
+    await logAudit(req.workspaceId, req.user?.id || null, 'KEYWORDS_WEEKLY_EVOLVED', 'keywords', null, {
+      businessId,
+      newSuggestionsCount: result.newSuggestions?.length || 0,
+      retiredCount: result.retiredCount || 0
+    });
+
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getFlywheelSummary = async (req, res, next) => {
+  try {
+    const businessId = req.params.businessId || req.businessId;
+    if (!businessId) {
+      return res.status(400).json({ success: false, error: 'Business ID required' });
+    }
+
+    const data = await getUnifiedFlywheelSummary(businessId);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+};
+
+

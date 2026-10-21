@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Mail, ArrowRight, ArrowLeft, Lock, ShieldCheck,
@@ -519,7 +519,7 @@ export default function ForgotPasswordPage() {
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-6 mt-4 text-xs text-slate-500">
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 mt-4 text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4 text-emerald-600" /> Account Verification Protected
           </span>

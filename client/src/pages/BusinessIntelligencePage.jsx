@@ -150,72 +150,80 @@ export default function BusinessIntelligencePage() {
   return (
     <div className="space-y-6">
       {/* Top Banner / Intelligence Header */}
-      <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 rounded-2xl p-6 lg:p-8 text-white relative overflow-hidden shadow-xl border border-indigo-800/40">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
+      <div className="rounded-2xl bg-white border border-slate-200 p-6 sm:p-7 shadow-xs space-y-5">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 border-b border-slate-100 pb-5">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="px-3 py-1 bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 text-xs font-semibold rounded-full flex items-center gap-1.5 backdrop-blur-md">
-                <Brain className="w-3.5 h-3.5 text-indigo-300" />
-                CENTRAL BI PROFILE 2.0
+            <div className="flex items-center gap-2.5 mb-2.5">
+              <span className="px-3 py-1 bg-blue-50 text-[#034bc0] border border-blue-200 text-xs font-bold rounded-full flex items-center gap-1.5 shadow-2xs">
+                <Brain className="w-3.5 h-3.5 text-[#034bc0]" />
+                Business Intelligence Engine
               </span>
-              <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-medium rounded-full flex items-center gap-1">
-                <Shield className="w-3 h-3" /> Industry: {businessData?.industry_name || 'Multi-Industry'}
+              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-full flex items-center gap-1 shadow-2xs">
+                <Shield className="w-3 h-3 text-emerald-600" /> {businessData?.industry_name || 'Hospitality & Dining'}
               </span>
             </div>
-            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white flex items-center gap-3">
-              {businessData?.name || 'Business Intelligence Engine'}
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+              {businessData?.name || activeBusiness?.name || 'Bhagyalaxmi Hotel & Resort'}
             </h1>
-            <p className="text-indigo-200/80 text-sm mt-1 max-w-2xl leading-relaxed">
-              Every AI module (Review Replies, SEO Content, Keyword Discovery, Local Recommendations) dynamically reads this profile to guarantee factual accuracy and niche brand voice.
+            <p className="text-slate-500 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
+              Every AI module (Google Review Replies, SEO Content, Keyword Discovery, Local Recommendations) dynamically reads this profile to guarantee factual accuracy and brand voice.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 self-stretch lg:self-auto justify-end">
+          <div className="flex items-center gap-2.5 self-stretch lg:self-auto justify-end shrink-0">
             <button
               onClick={fetchProfile}
-              className="px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white rounded-xl text-sm font-medium border border-slate-700 transition flex items-center gap-2 cursor-pointer"
+              className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
-              <RefreshCw className="w-4 h-4" /> Reset
+              <RefreshCw className="w-3.5 h-3.5 text-slate-600" />
+              <span>Reset</span>
             </button>
             {isClient ? (
-              <div className="px-4 py-2.5 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-1.5 shadow-sm">
-                <Shield className="w-3.5 h-3.5 text-blue-400" />
+              <div className="px-3.5 py-2 bg-slate-50 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 flex items-center gap-1.5 shadow-2xs">
+                <Shield className="w-3.5 h-3.5 text-[#034bc0]" />
                 <span>Managed by Agency Administrator</span>
               </div>
             ) : (
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 transition flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                className="px-4 py-2 bg-[#034bc0] hover:bg-[#023aa0] text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
-                {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-4 h-4" />}
-                <span>{saving ? 'Syncing Profile...' : 'Save Intelligence Profile'}</span>
+                {saving ? (
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Save className="w-3.5 h-3.5" />
+                )}
+                <span>{saving ? 'Syncing...' : 'Save Intelligence Profile'}</span>
               </button>
             )}
           </div>
         </div>
 
         {isClient && (
-          <div className="mt-4 p-3.5 bg-blue-500/20 border border-blue-400/40 rounded-xl text-blue-200 text-xs sm:text-sm flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-blue-300 shrink-0" />
-              <span><strong>Client View Mode (business.view ✅):</strong> Core business context, services, and AI policy rules are maintained by your agency administrator. You have full transparency to view all active parameters below.</span>
+          <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200/80 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-slate-700">
+              <Shield className="w-4 h-4 text-[#034bc0] shrink-0" />
+              <span>
+                <strong className="text-slate-900">Verified Business Profile:</strong> Core services, brand voice, and safety rules are maintained by your agency administrator. You have full transparency to view all active parameters below.
+              </span>
             </div>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-blue-100 text-[#034bc0] shrink-0">Read-Only</span>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-[#034bc0] border border-blue-200 shrink-0 self-start sm:self-auto">
+              Read-Only
+            </span>
           </div>
         )}
 
         {saveSuccess && (
-          <div className="mt-4 p-3 bg-emerald-500/20 border border-emerald-400/40 rounded-xl text-emerald-200 text-sm flex items-center gap-2 animate-fadeIn">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>Business Intelligence Profile updated successfully! All active AI models and prompt pipelines have been re-indexed.</span>
           </div>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto no-scrollbar">
         {[
           { id: 'core', label: 'Identity & Services', icon: Building2 },
           { id: 'brand', label: 'Brand Voice & Audience', icon: Volume2 },
@@ -226,10 +234,10 @@ export default function BusinessIntelligencePage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               activeTab === tab.id
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                ? 'bg-[#034bc0] text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <tab.icon className="w-4 h-4" />
@@ -736,7 +744,7 @@ export default function BusinessIntelligencePage() {
       {/* Add KB Modal */}
       {showKbModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-4">
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <FileText className="w-5 h-5 text-indigo-600" /> Add Knowledge Base Entry
             </h3>

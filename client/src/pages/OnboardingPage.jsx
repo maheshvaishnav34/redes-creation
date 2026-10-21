@@ -18,7 +18,8 @@ import {
   Scale,
   Briefcase,
   Factory,
-  Tag
+  Tag,
+  Search
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -111,8 +112,62 @@ export const OnboardingPage = () => {
     website: '',
     googleReviewUrl: '',
     services: 'Chef Tasting Menu, Candlelight Dinners, Private Dining Rooms, Banquet Catering',
-    serviceRadius: 15
+    serviceRadius: 15,
+    targetKeywords: [],
+    competitorNames: [],
+    googlePlaceId: null,
+    autoSyncReviews: true
   });
+
+  // AI 1-Click Magic Onboarding States
+  const [aiInput, setAiInput] = useState('');
+  const [aiEnriching, setAiEnriching] = useState(false);
+  const [aiEnrichedData, setAiEnrichedData] = useState(null);
+
+  const handleAiEnrich = async (e) => {
+    if (e) e.preventDefault();
+    if (!aiInput.trim()) {
+      setErrorMsg('Please enter a business name, city, or paste a Google Maps link.');
+      return;
+    }
+
+    setAiEnriching(true);
+    setErrorMsg('');
+
+    try {
+      const res = await api.aiEnrichBusiness({ query: aiInput.trim() });
+      if (res.success && res.data) {
+        const d = res.data;
+        setAiEnrichedData(d);
+        setFormData(prev => ({
+          ...prev,
+          businessName: d.name,
+          industryId: d.industryId,
+          subcategoryId: d.subcategoryName,
+          address: d.address,
+          city: d.city,
+          state: d.state,
+          postalCode: d.postalCode,
+          phone: d.phone,
+          website: d.website,
+          googleReviewUrl: d.googleReviewUrl,
+          services: Array.isArray(d.services) ? d.services.join(', ') : d.services,
+          brandVoice: d.brandVoice || 'Warm & Professional',
+          targetKeywords: d.targetKeywords || [],
+          competitorNames: d.competitorNames || [],
+          googlePlaceId: d.googlePlaceId || d.placeId || null,
+          autoSyncReviews: true
+        }));
+      } else {
+        throw new Error(res.error || 'Failed to auto-detect business details');
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'AI auto-detection failed. Please fill details manually.');
+    } finally {
+      setAiEnriching(false);
+    }
+  };
+
 
   // Load industries if API provides them
   useEffect(() => {
@@ -212,9 +267,12 @@ export const OnboardingPage = () => {
         serviceRadius: Number(formData.serviceRadius) || 15,
         targetLocations: [formData.city, `${formData.city} Central`, `${formData.city} West`],
         customerIntents: ['visit', 'booking', 'call'],
-        brandVoice: 'Warm & Professional',
+        brandVoice: formData.brandVoice || 'Warm & Professional',
         aiLanguages: ['en', 'hi'],
-        connectGoogle: true
+        targetKeywords: formData.targetKeywords || [],
+        competitorNames: formData.competitorNames || [],
+        googlePlaceId: formData.googlePlaceId || aiEnrichedData?.googlePlaceId || aiEnrichedData?.placeId || null,
+        autoSyncReviews: formData.autoSyncReviews !== false
       };
 
       const res = await api.submitOnboarding(payload);
@@ -345,6 +403,143 @@ export const OnboardingPage = () => {
             {/* STEP 1: BUSINESS IDENTITY */}
             {currentStep === 1 && (
               <div className="space-y-4.5 animate-in fade-in duration-150">
+                {/* AI 1-Click Magic Onboarding Assistant */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-blue-50/90 via-indigo-50/60 to-white border-2 border-blue-200/80 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-[#034bc0] text-white flex items-center justify-center shadow-xs">
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                          <span>1-Click AI Magic Location Setup</span>
+                          <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-md bg-blue-600 text-white">AI Powered</span>
+                        </h3>
+                        <p className="text-[11px] text-slate-600 font-medium">
+                          Type business name & city, or paste a Google Maps link. AI auto-detects niche, services, keywords & competitors!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={aiInput}
+                        onChange={(e) => setAiInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAiEnrich(e);
+                          }
+                        }}
+                        placeholder="e.g. Apollo Dental Clinic, Ahmedabad or paste Google Maps link..."
+                        className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-blue-200 text-xs sm:text-sm text-slate-900 font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-[#034bc0] shadow-2xs"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      disabled={aiEnriching}
+                      onClick={handleAiEnrich}
+                      className="px-4 py-2.5 bg-[#034bc0] hover:bg-[#023aa0] text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50 shrink-0"
+                    >
+                      {aiEnriching ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>AI Scanning...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>⚡ Auto-Detect & Fill</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* AI Enriched Blueprint Preview Card */}
+                  {aiEnrichedData && (
+                    <div className="p-3.5 rounded-xl bg-white border border-blue-200 shadow-xs space-y-3 animate-in fade-in zoom-in-95">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <span className="text-[11px] font-black uppercase text-[#034bc0]">
+                            AI Synthesized Intelligence ({aiEnrichedData.confidenceScore}% Confidence)
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                          {aiEnrichedData.industryId?.toUpperCase()} • {aiEnrichedData.city}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div className="p-2.5 bg-slate-50 rounded-lg">
+                          <span className="text-[10px] text-slate-400 font-bold block uppercase">Detected Category</span>
+                          <p className="font-bold text-slate-900 truncate">{aiEnrichedData.industryName || aiEnrichedData.subcategoryName || aiEnrichedData.industryId}</p>
+                        </div>
+                        <div className="p-2.5 bg-slate-50 rounded-lg">
+                          <span className="text-[10px] text-slate-400 font-bold block uppercase">Official Address</span>
+                          <p className="font-semibold text-slate-700 truncate">{aiEnrichedData.address}</p>
+                        </div>
+                      </div>
+
+                      {/* Keywords Preview */}
+                      {aiEnrichedData.targetKeywords && aiEnrichedData.targetKeywords.length > 0 && (
+                        <div>
+                          <span className="text-[10px] text-slate-500 font-bold block mb-1 uppercase tracking-wider">
+                            Auto-Generated Search Keywords:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {aiEnrichedData.targetKeywords.slice(0, 6).map((kw, i) => (
+                              <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-[#034bc0] border border-blue-100">
+                                #{kw}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Competitors Preview */}
+                      {aiEnrichedData.competitorNames && aiEnrichedData.competitorNames.length > 0 && (
+                        <div>
+                          <span className="text-[10px] text-slate-500 font-bold block mb-1 uppercase tracking-wider">
+                            Local Competitors Benchmark:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {aiEnrichedData.competitorNames.map((c, i) => (
+                              <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                                🎯 {c}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Instant 1-Click Launch Button */}
+                      <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <span className="text-[11px] text-slate-500 font-medium">Ready to deploy with full intelligence?</span>
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={handleSubmit}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Launch Autonomous Flywheel 🚀</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 my-2">
+                  <div className="flex-1 h-px bg-slate-200"></div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">or review & customize below</span>
+                  <div className="flex-1 h-px bg-slate-200"></div>
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-800 block">
                     Business / Branch Name *
@@ -359,42 +554,22 @@ export const OnboardingPage = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {/* Industry */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800 block">
-                      Industry / Category *
-                    </label>
-                    <select
-                      value={formData.industryId}
-                      onChange={(e) => handleIndustryChange(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 font-medium bg-white focus:outline-none focus:border-[#034bc0]"
-                    >
-                      {industries.map((ind) => (
-                        <option key={ind.id} value={ind.id}>
-                          {ind.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Subcategory */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800 block">
-                      Sub-category
-                    </label>
-                    <select
-                      value={formData.subcategoryId}
-                      onChange={(e) => setFormData({ ...formData, subcategoryId: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 font-medium bg-white focus:outline-none focus:border-[#034bc0]"
-                    >
-                      {(selectedInd?.subcategories || []).map((sub) => (
-                        <option key={sub} value={sub}>
-                          {sub}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                {/* Industry */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-800 block">
+                    Industry / Category *
+                  </label>
+                  <select
+                    value={formData.industryId}
+                    onChange={(e) => handleIndustryChange(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 font-medium bg-white focus:outline-none focus:border-[#034bc0]"
+                  >
+                    {industries.map((ind) => (
+                      <option key={ind.id} value={ind.id}>
+                        {ind.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Business Model Selection */}

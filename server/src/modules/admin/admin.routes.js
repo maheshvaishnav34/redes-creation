@@ -6,6 +6,7 @@ import {
   listAllWorkspaces,
   toggleWorkspaceStatus,
   listAllLocations,
+  createAdminLocation,
   updateAdminLocation,
   deleteAdminLocation
 } from './admin.controller.js';
@@ -22,9 +23,11 @@ router.get('/prompts', getPromptVersions);
 router.get('/workspaces', listAllWorkspaces);
 router.put('/workspaces/:id/toggle-status', toggleWorkspaceStatus);
 
-// Locations Administration (Edit & Delete)
+// Locations Administration (Create, Edit & Delete)
 router.get('/locations', listAllLocations);
+router.post('/locations', createAdminLocation);
 router.put('/locations/:id', updateAdminLocation);
 router.delete('/locations/:id', deleteAdminLocation);
 
 export default router;
+

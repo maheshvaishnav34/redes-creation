@@ -18,6 +18,7 @@ router.use(authenticate, tenantIsolation);
 router.get('/', listCompetitors);
 router.get('/discover', discoverCompetitors);
 router.get('/comparison', getComparisonMatrix);
+router.get('/matrix', getComparisonMatrix);
 
 // Competitor tracking
 router.post('/', authorize(['client', 'owner', 'admin']), addCompetitor);

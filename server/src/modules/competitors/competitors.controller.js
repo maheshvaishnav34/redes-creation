@@ -1,5 +1,7 @@
 import { query } from '../../config/db.js';
 import { logAudit } from '../../middleware/auditLogger.js';
+import { discoverLiveCompetitorsForBusiness } from './competitors.service.js';
+import { openAIService } from '../ai/openai.service.js';
 
 export const listCompetitors = async (req, res, next) => {
   try {
@@ -86,7 +88,7 @@ export const discoverCompetitors = async (req, res, next) => {
     const businessId = req.businessId;
 
     const bizRes = await query(
-      `SELECT b.name, b.city, b.industry_id, b.subcategory_id,
+      `SELECT b.name, b.city, b.latitude, b.longitude, b.industry_id, b.subcategory_id,
               i.name as industry_name, sc.name as subcategory_name
        FROM business_locations b
        LEFT JOIN industries i ON b.industry_id = i.id
@@ -96,48 +98,22 @@ export const discoverCompetitors = async (req, res, next) => {
     );
 
     const biz = bizRes.rows[0] || {};
-    const city = biz.city || 'City';
-    const subcat = biz.subcategory_name || biz.industry_name || 'Business';
 
-    // Intelligently generate realistic competitor candidates based on niche + city
-    const candidates = [
-      {
-        name: `Apex ${subcat} Hub ${city}`,
-        categories: [subcat, 'Service Center'],
-        rating: 4.4,
-        review_count: 520,
-        review_velocity: 14.5,
-        visibility_score: 74.0,
-        rationale: `Ranks in Top 3 Maps pack for "${subcat.toLowerCase()} in ${city}"`,
-        common_themes: ['Fast Response', 'Customer Support', 'Pricing']
-      },
-      {
-        name: `Premier ${subcat} & Co.`,
-        categories: [subcat, 'Professional Services'],
-        rating: 4.2,
-        review_count: 890,
-        review_velocity: 18.0,
-        visibility_score: 82.5,
-        rationale: `High review volume competitor within 5km radius of your location`,
-        common_themes: ['Location Accessibility', 'Staff Expertise', 'Wait Times']
-      },
-      {
-        name: `Metro ${subcat} Solutions`,
-        categories: [subcat, 'Corporate'],
-        rating: 4.6,
-        review_count: 310,
-        review_velocity: 9.2,
-        visibility_score: 63.0,
-        rationale: `Emerging competitor with aggressive recent review velocity`,
-        common_themes: ['Ambiance / Facilities', 'Service Variety', 'Booking Ease']
-      }
-    ];
+    const discovery = await discoverLiveCompetitorsForBusiness({
+      businessName: biz.name,
+      latitude: biz.latitude,
+      longitude: biz.longitude,
+      city: biz.city,
+      industryName: biz.industry_name,
+      subcategoryName: biz.subcategory_name
+    });
 
     res.json({
       success: true,
-      city,
-      niche: subcat,
-      suggestions: candidates
+      city: discovery.city,
+      niche: discovery.niche,
+      providerSource: discovery.providerSource,
+      suggestions: discovery.candidates
     });
   } catch (err) {
     next(err);
@@ -193,6 +169,31 @@ export const getComparisonMatrix = async (req, res, next) => {
         }
       ]
     };
+
+    // Real-Time Groq AI Strategic Competitor Gap Analysis
+    try {
+      if (competitors.length > 0) {
+        const compSummaries = competitors.slice(0, 3).map(c => `${c.name} (${c.rating}★, ${c.review_count} reviews)`).join(', ');
+        const liveAiGaps = await openAIService.executeChatCompletion({
+          systemPrompt: `You are an elite Local SEO & Market Intelligence Analyst. Compare "${myBiz.name}" (${myRating}★, ${myCount} reviews) against top area competitors: ${compSummaries}.
+Identify 2 high-impact strategic gaps and specific actionable advantages for "${myBiz.name}". Output valid JSON ONLY with format:
+[
+  { "competitor": "Name", "gapType": "Short Gap Title", "impact": "Specific competitive vulnerability or difference", "actionableAdvantage": "Actionable tactic for ${myBiz.name} to win local customers" }
+]`,
+          userPrompt: 'Generate the competitive gaps JSON.'
+        });
+
+        if (liveAiGaps?.content) {
+          const cleanJson = liveAiGaps.content.replace(/```json|```/g, '').trim();
+          const parsed = JSON.parse(cleanJson);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            comparison.gaps = parsed;
+          }
+        }
+      }
+    } catch (aiErr) {
+      console.warn('[COMPETITORS_AI] Dynamic gaps notice:', aiErr.message);
+    }
 
     res.json({ success: true, comparison, competitors });
   } catch (err) {

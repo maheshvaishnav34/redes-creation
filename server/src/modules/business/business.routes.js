@@ -4,7 +4,8 @@ import {
   listBusinesses,
   getBusinessProfile,
   updateBusinessProfile,
-  submitOnboarding
+  submitOnboarding,
+  aiEnrichBusinessLocation
 } from './business.controller.js';
 import { authenticate } from '../../middleware/auth.js';
 import { tenantIsolation } from '../../middleware/tenant.js';
@@ -23,8 +24,10 @@ router.get('/list', listBusinesses);
 router.get('/:id', getBusinessProfile);
 router.get('/current/profile', getBusinessProfile);
 
-// Level 2: Onboarding - Accessible to any user initializing their business
+// Level 2: Onboarding & AI Location Enrichment
+router.post('/ai-enrich', authorize(['owner', 'admin', 'client', 'manager', 'staff']), aiEnrichBusinessLocation);
 router.post('/onboarding', authorize(['owner', 'admin', 'client', 'manager', 'staff']), submitOnboarding);
 router.put('/:id/profile', authorize(['owner', 'admin', 'client']), updateBusinessProfile);
 
 export default router;
+

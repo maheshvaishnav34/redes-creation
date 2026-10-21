@@ -1,5 +1,6 @@
 import { query } from '../../config/db.js';
 import { logAudit } from '../../middleware/auditLogger.js';
+import { getUnifiedFlywheelSummary } from '../keywords/keywords.service.js';
 
 export const listReports = async (req, res, next) => {
   try {
@@ -173,34 +174,40 @@ export const generateReport = async (req, res, next) => {
       }
     };
 
-    // 2. AI Executive Interpretation (Strictly Grounded in Measured Telemetry)
-    const aiExecutiveSummary = `During this reporting cycle, ${biz.name} demonstrated outstanding local pack dominance, capturing Top 3 positions for high-intent queries while maintaining an aggregate rating of ${measuredData.executiveMetrics.averageRating}★ across ${totalRev} customer reviews. Response rate reached ${calculatedResponseRate}%, comfortably beating the industry median of 65%. Verified topic analysis reveals decisive guest praise for culinary craftsmanship and staff demeanor, while weekend parking friction remains the primary area requiring operational attention. The GBP optimization health index reached ${aStats.overall_score}/100 with clear competitive lead over monitored rivals.`;
+    let finalSummaryData = measuredData;
+    let finalAiSummary = aiExecutiveSummary;
+    let finalRecommendations = recommendations;
 
-    // 3. Next-Period Actionable Recommendations (Section 17 item 12)
-    const recommendations = [
-      {
-        priority: 'Critical',
-        area: 'Reputation & Guest Safety',
-        recommendation: 'Complete management outreach to guest Dr. Sunita Rao regarding allergy concerns to preserve guest safety reputation.'
-      },
-      {
-        priority: 'High',
-        area: 'Local SEO Catalog',
-        recommendation: 'Itemize explicit GBP structured service items for Private Dining Rooms and Banquet buffets to capture corporate dining intent.'
-      },
-      {
-        priority: 'Medium',
-        area: 'Content & Engagement',
-        recommendation: 'Publish a weekly Google Post showcasing the weekend Chef Tasting menu to maintain active search engagement signals.'
-      },
-      {
-        priority: 'Medium',
-        area: 'Operational Logistics',
-        recommendation: 'Deploy dedicated valet signage during Friday-Sunday evening rush to mitigate parking-related customer friction.'
+    if (reportType === 'flywheel') {
+      try {
+        const fwResult = await getUnifiedFlywheelSummary(businessId);
+        finalSummaryData = {
+          ...measuredData,
+          flywheel: fwResult?.flywheel || null,
+          platformVision: {
+            title: 'Autonomous Local Business Growth Flywheel & 100% Real-Time Human-Voice Architecture',
+            coreModules: 7,
+            advancedInnovations: 5,
+            realTimeStreams: ['Google Search Autocomplete', 'Google Trends RSS', 'Postgres Telemetry', 'Geo-Grid Coordinates']
+          }
+        };
+        finalAiSummary = `Redes Creation operates as an Autonomous Local Business Growth Flywheel grounded in 100% Real-Time Market Truth. Every module communicates in a closed feedback loop: Live Trends & Autocomplete feed 7-Day Keyword Evolution, fueling customer reviews in the Review Funnel (/r/:slug), dominating the Google Maps 3-Pack, guiding Geo-Grid recovery, powering multi-angle Google Posts, and routing 1-2 star complaints directly into priority tasks. 100% Natural Human Voice enforced with zero robotic AI buzzwords.`;
+        finalRecommendations = [
+          { priority: 'Critical', area: 'Google 3-Pack Dominance', recommendation: 'Maintain 7-day adaptive keyword evolution to align with surging local Google Autocomplete queries.' },
+          { priority: 'High', area: 'Customer Review Funnel', recommendation: 'Promote customer review QR cards to continue infusing verified local keywords into 5-star customer feedback.' },
+          { priority: 'High', area: 'Geo-Grid Proximity Recovery', recommendation: 'Convert weak proximity nodes (>3 rank) into localized recovery Google Posts and review targets.' },
+          { priority: 'Medium', area: 'Multi-Angle Google Posts', recommendation: 'Publish weekly Google Posts cycling between Festive Surge, 3-Pack Authority, Signature Experience, and Special Offers.' }
+        ];
+      } catch (fwErr) {
+        console.warn('[REPORTS] Error fetching flywheel summary for report:', fwErr.message);
       }
-    ];
+    }
 
-    const reportTitle = title || `Local SEO & Reputation Executive Report - ${biz.name}`;
+    const reportTitle = title || (
+      reportType === 'flywheel'
+        ? `Flywheel Architecture Executive Briefing - ${biz.name}`
+        : `Local SEO & Reputation Executive Report - ${biz.name}`
+    );
 
     const newReport = await query(
       `INSERT INTO reports (
@@ -212,7 +219,7 @@ export const generateReport = async (req, res, next) => {
         req.workspaceId, businessId, reportTitle, reportType,
         dateRangeStart || new Date(Date.now() - 30 * 86400000),
         dateRangeEnd || new Date(),
-        JSON.stringify(measuredData), aiExecutiveSummary, JSON.stringify(recommendations)
+        JSON.stringify(finalSummaryData), finalAiSummary, JSON.stringify(finalRecommendations)
       ]
     );
 

@@ -4,7 +4,7 @@ import {
   Clock, CheckCircle2, AlertTriangle, RefreshCw, Eye, Power, FileCode,
   QrCode, Edit3, Trash2, Globe, ThumbsUp, ExternalLink, Plus,
   CreditCard, Receipt, Sliders, Zap, Download, Play, RotateCw,
-  MapPin, Search, X
+  MapPin, Search, X, Sparkles
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -40,6 +40,11 @@ export default function AdminPage() {
     googleReviewUrl: '',
     isPrimary: false
   });
+
+  // AI 1-Click Location Auto-Fill State
+  const [adminAiInput, setAdminAiInput] = useState('');
+  const [adminAiLoading, setAdminAiLoading] = useState(false);
+
 
   // Section 15 Automation & Background Jobs State
   const [automationTelemetry, setAutomationTelemetry] = useState(null);
@@ -382,7 +387,37 @@ export default function AdminPage() {
       googleReviewUrl: '',
       isPrimary: false
     });
+    setAdminAiInput('');
     setCreateLocationModalOpen(true);
+  };
+
+  const handleAdminAiEnrich = async () => {
+    if (!adminAiInput.trim()) return;
+    setAdminAiLoading(true);
+    try {
+      const res = await api.aiEnrichBusiness({ query: adminAiInput.trim() });
+      if (res.success && res.data) {
+        const d = res.data;
+        setLocForm(prev => ({
+          ...prev,
+          name: d.name || prev.name,
+          industryId: d.industryId || prev.industryId,
+          address: d.address || prev.address,
+          city: d.city || prev.city,
+          state: d.state || prev.state,
+          postalCode: d.postalCode || prev.postalCode,
+          phone: d.phone || prev.phone,
+          website: d.website || prev.website,
+          googleReviewUrl: d.googleReviewUrl || prev.googleReviewUrl,
+          placeId: d.placeId || prev.placeId,
+          healthScore: 92
+        }));
+      }
+    } catch (err) {
+      alert('AI enrichment notice: ' + (err.message || 'Auto-detection failed'));
+    } finally {
+      setAdminAiLoading(false);
+    }
   };
 
   const handleSaveLocation = async (e) => {
@@ -407,15 +442,19 @@ export default function AdminPage() {
     e.preventDefault();
     setSavingLocation(true);
     try {
-      const res = await api.createLocation({
+      const res = await api.createAdminLocation({
         name: locForm.name.trim(),
         industryId: locForm.industryId,
         address: locForm.address.trim(),
         city: locForm.city.trim(),
-        state: locForm.state.trim(),
-        postalCode: locForm.postalCode.trim(),
+        state: locForm.state?.trim(),
+        postalCode: locForm.postalCode?.trim(),
         phone: locForm.phone.trim(),
-        website: locForm.website.trim()
+        website: locForm.website.trim(),
+        googleReviewUrl: locForm.googleReviewUrl?.trim(),
+        placeId: locForm.placeId?.trim(),
+        isPrimary: Boolean(locForm.isPrimary),
+        healthScore: Number(locForm.healthScore) || 90
       });
       if (res.success) {
         setCreateLocationModalOpen(false);
@@ -428,6 +467,7 @@ export default function AdminPage() {
       setSavingLocation(false);
     }
   };
+
 
   const handleDeleteLocation = async (loc) => {
     if (locations.length <= 1) {
@@ -509,7 +549,7 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto no-scrollbar">
         {[
           { id: 'health', label: 'Cluster Diagnostics', icon: Activity },
           { id: 'locations', label: `Locations (${locations.length})`, icon: MapPin },
@@ -596,7 +636,7 @@ export default function AdminPage() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
           <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">All Multi-Tenant Workspaces</h3>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full min-w-[550px] text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold">
                   <th className="pb-3">Workspace Name</th>
@@ -693,7 +733,7 @@ export default function AdminPage() {
                 <span className="text-xs text-slate-400">Loading business locations...</span>
               </div>
             ) : (
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[650px] text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
                     <th className="pb-3 font-semibold">Location / Business</th>
@@ -911,7 +951,7 @@ export default function AdminPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full min-w-[650px] text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold">
                       <th className="pb-3">Workspace</th>
@@ -996,7 +1036,7 @@ export default function AdminPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full min-w-[600px] text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold">
                       <th className="pb-3">Invoice Number</th>
@@ -1092,7 +1132,7 @@ export default function AdminPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[650px] text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold">
                     <th className="pb-3">Campaign & Business</th>
@@ -1185,7 +1225,7 @@ export default function AdminPage() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
           <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">Scheduled Cron & Worker Job Runs</h3>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full min-w-[600px] text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold">
                   <th className="pb-3">Job Type</th>
@@ -1249,7 +1289,7 @@ export default function AdminPage() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
           <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">Immutable Global Audit Trail</h3>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full min-w-[600px] text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold">
                   <th className="pb-3">Action Event</th>
@@ -1886,6 +1926,37 @@ export default function AdminPage() {
             </div>
 
             <form onSubmit={handleCreateLocation} className="space-y-4 pt-4 text-xs">
+              {/* AI 1-Click Auto-Fill Assistant */}
+              <div className="p-3.5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50/70 border border-blue-200/80 mb-2 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-[#034bc0]" />
+                  <span className="text-xs font-black text-slate-900">⚡ 1-Click AI Magic Location Setup</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Type business name e.g. Apollo Dental Ahmedabad or paste Google Maps link..."
+                    value={adminAiInput}
+                    onChange={(e) => setAdminAiInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAdminAiEnrich();
+                      }
+                    }}
+                    className="flex-1 px-3 py-1.5 rounded-lg border border-blue-200 text-xs bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#034bc0]"
+                  />
+                  <button
+                    type="button"
+                    disabled={adminAiLoading}
+                    onClick={handleAdminAiEnrich}
+                    className="px-3 py-1.5 rounded-lg bg-[#034bc0] hover:bg-[#023aa0] text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50 shrink-0"
+                  >
+                    {adminAiLoading ? 'Scanning...' : 'Auto-Fill'}
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Business Name <span className="text-rose-500">*</span>

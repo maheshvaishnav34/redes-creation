@@ -10,12 +10,32 @@ import {
   generateAIReply,
   approveAndPublishReply
 } from './reviews.controller.js';
-import { authenticate } from '../../middleware/auth.js';
+import {
+  getGoogleLiveReviews,
+  syncRealReviewsHandler,
+  searchPlacesHandler,
+  streamReviewEvents,
+  getSyncTelemetryHandler
+} from './googleLiveReviews.controller.js';
+import { authenticate, optionalAuthenticate } from '../../middleware/auth.js';
 import { tenantIsolation } from '../../middleware/tenant.js';
 import { authorize } from '../../middleware/rbac.js';
 
 const router = Router();
 
+// Public & Authenticated Live Google Reviews & Place Showcase Endpoint
+router.get('/google-live', optionalAuthenticate, getGoogleLiveReviews);
+router.get('/live', optionalAuthenticate, getGoogleLiveReviews);
+router.get('/search-places', optionalAuthenticate, searchPlacesHandler);
+router.post('/sync-real', optionalAuthenticate, syncRealReviewsHandler);
+router.get('/sync-real', optionalAuthenticate, syncRealReviewsHandler);
+
+// Real-Time SSE Stream & Telemetry (Supports ?token= in EventSource)
+router.get('/stream', authenticate, tenantIsolation, streamReviewEvents);
+router.get('/sync-telemetry', authenticate, tenantIsolation, getSyncTelemetryHandler);
+
+
+// Protected routes below
 router.use(authenticate, tenantIsolation);
 
 // Aggregated Intelligence Endpoints (Must be above /:id)

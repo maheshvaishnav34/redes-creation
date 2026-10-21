@@ -28,6 +28,10 @@
 
 import { query } from '../../config/db.js';
 import { reviewWorker } from '../reviews/reviews.worker.js';
+import { googleService } from '../google/google.service.js';
+import { decryptToken } from '../../utils/crypto.js';
+import { resolveBusinessGoogleReviewUrl } from '../../utils/googleUrlValidator.js';
+import { evolveWeeklyKeywordsForBusiness } from '../keywords/keywords.service.js';
 
 class AutomationEngine {
   constructor() {
@@ -385,53 +389,170 @@ class AutomationEngine {
 
     for (const biz of bizList.rows) {
       const connRes = await query(
-        `SELECT id FROM google_connections WHERE workspace_id = $1 AND status = 'connected'`,
+        `SELECT id, access_token, refresh_token, token_expiry, status FROM google_connections WHERE workspace_id = $1 AND status = 'connected'`,
         [biz.workspace_id]
       );
       if (connRes.rows.length === 0) continue;
+      const conn = connRes.rows[0];
 
-      const locRes = await query(`SELECT id FROM google_locations WHERE business_id = $1`, [biz.id]);
-      const locationId = locRes.rows[0]?.id || null;
+      const locRes = await query(`SELECT id, gbp_location_id, gbp_account_id, gbp_place_id FROM google_locations WHERE business_id = $1`, [biz.id]);
+      const locationRecord = locRes.rows[0] || null;
+      const locationId = locationRecord?.id || null;
 
-      // Realistic incoming Google reviews pool to simulate real GBP webhooks/sync
-      const incomingReviews = [
-        {
-          gbp_id: `gbp_sync_${biz.id.slice(0, 8)}_1`,
-          author: 'Priya Sharma',
-          rating: 5,
-          text: `Outstanding support and high professional standards from ${biz.name}! Highly recommended.`,
-          date: new Date(Date.now() - 3600000 * 3)
-        },
-        {
-          gbp_id: `gbp_sync_${biz.id.slice(0, 8)}_2`,
-          author: 'Amit Patel',
-          rating: 4,
-          text: `Great communication and skilled team at ${biz.name}. Minor delay in initial scheduling but very pleased overall.`,
-          date: new Date(Date.now() - 3600000 * 12)
-        }
-      ];
+      let incomingReviews = [];
+      const accessToken = await googleService.ensureValidAccessToken(conn);
 
-      for (const r of incomingReviews) {
-        const exist = await query(`SELECT id FROM reviews WHERE gbp_review_id = $1`, [r.gbp_id]);
-        if (exist.rows.length === 0) {
-          const ins = await query(
-            `INSERT INTO reviews (business_id, google_location_id, gbp_review_id, author_name, rating, review_text, review_date, processing_status, reply_status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 'unanswered')
-             RETURNING id`,
-            [biz.id, locationId, r.gbp_id, r.author, r.rating, r.text, r.date]
-          );
-          totalSynced++;
-          reviewWorker.enqueueReview(ins.rows[0].id, biz.id);
+      // 1. Try real Google Business Profile API
+      if (accessToken && locationRecord?.gbp_location_id && !accessToken.includes('mock') && !accessToken.includes('placeholder')) {
+        try {
+          const cleanLocId = locationRecord.gbp_location_id.replace(/^locations\//, '');
+          let accountName = locationRecord.gbp_account_id;
+
+          if (!accountName || !accountName.startsWith('accounts/')) {
+            const accounts = await googleService.listAccounts(accessToken, biz.workspace_id);
+            if (Array.isArray(accounts) && accounts.length > 0) {
+              accountName = accounts[0].name;
+              for (const acc of accounts) {
+                const locs = await googleService.listLocations(accessToken, acc.name, biz.workspace_id);
+                if (locs.some(l => l.name === locationRecord.gbp_location_id || l.name.endsWith(cleanLocId))) {
+                  accountName = acc.name;
+                  break;
+                }
+              }
+              if (accountName && locationId) {
+                await query(`UPDATE google_locations SET gbp_account_id = $1 WHERE id = $2`, [accountName, locationId]);
+              }
+            }
+          }
+
+          if (accountName) {
+            const gbpReviews = await googleService.syncReviews(accessToken, accountName, cleanLocId, biz.workspace_id, { maxPages: 50, pageSize: 50 });
+            if (Array.isArray(gbpReviews) && gbpReviews.length > 0) {
+              incomingReviews = gbpReviews;
+            }
+          }
+        } catch (err) {
+          console.warn('[AUTOMATION_ENGINE] Live GBP sync error:', err.message);
         }
       }
 
-      await query(`UPDATE google_connections SET last_sync_at = NOW() WHERE id = $1`, [connRes.rows[0].id]);
+      // 2. Try real Google Places API if Place ID exists
+      if (incomingReviews.length === 0) {
+        const resolved = await resolveBusinessGoogleReviewUrl(biz.id);
+        const placeId = locationRecord?.gbp_place_id || resolved.googlePlaceId;
+        if (placeId) {
+          try {
+            const placesReviews = await googleService.fetchPlacesApiReviews(placeId);
+            if (Array.isArray(placesReviews) && placesReviews.length > 0) {
+              incomingReviews = placesReviews;
+            }
+          } catch (err) {
+            console.warn('[AUTOMATION_ENGINE] Places API sync error:', err.message);
+          }
+        }
+      }
+
+      let bizNewSynced = 0;
+
+      // Ingest genuine reviews only with duplicate prevention and reply synchronization
+      for (const r of incomingReviews) {
+        const gbpReviewId = r.reviewId || `google_${biz.id}_${r.createTime}`;
+        const authorName = r.reviewer?.displayName || r.author || 'Google User';
+        const authorPhotoUrl = r.reviewer?.profilePhotoUrl || null;
+        const rating = Number(r.starRating || r.rating) || 5;
+        const reviewText = r.comment || r.text || '';
+        const reviewDate = r.createTime ? new Date(r.createTime) : new Date();
+
+        let reviewDbId = null;
+
+        const ins = await query(
+          `INSERT INTO reviews (
+             business_id, google_location_id, gbp_review_id, author_name,
+             author_photo_url, author_type, author_level, author_review_count,
+             review_source, review_url, has_photos, photo_count,
+             rating, review_text, review_date, processing_status, reply_status
+           ) VALUES ($1, $2, $3, $4, $5, 'google_user', 1, 1, 'google_maps', $6, FALSE, 0, $7, $8, $9, 'pending', $10)
+           ON CONFLICT (business_id, gbp_review_id) DO UPDATE
+           SET review_text = EXCLUDED.review_text,
+               rating = EXCLUDED.rating,
+               author_name = EXCLUDED.author_name,
+               author_photo_url = COALESCE(EXCLUDED.author_photo_url, reviews.author_photo_url),
+               reply_status = EXCLUDED.reply_status,
+               updated_at = NOW()
+           RETURNING id, (xmax = 0) AS is_new`,
+          [
+            biz.id,
+            locationId,
+            gbpReviewId,
+            authorName,
+            authorPhotoUrl,
+            `https://maps.google.com/?q=${encodeURIComponent(biz.name)}`,
+            rating,
+            reviewText,
+            reviewDate,
+            r.reviewReply?.comment ? 'replied' : 'unanswered'
+          ]
+        );
+
+        if (ins.rows.length > 0) {
+          reviewDbId = ins.rows[0].id;
+          if (ins.rows[0].is_new) {
+            totalSynced++;
+            bizNewSynced++;
+            reviewWorker.enqueueReview(reviewDbId, biz.id);
+          }
+        } else {
+          const existRes = await query(`SELECT id FROM reviews WHERE business_id = $1 AND gbp_review_id = $2`, [biz.id, gbpReviewId]);
+          reviewDbId = existRes.rows[0]?.id || null;
+        }
+
+        // If review has owner reply from Google, synchronize to review_responses table
+        if (reviewDbId && r.reviewReply?.comment) {
+          const replyComment = r.reviewReply.comment;
+          const replyTime = r.reviewReply.updateTime ? new Date(r.reviewReply.updateTime) : new Date();
+
+          const existingResp = await query(`SELECT id FROM review_responses WHERE review_id = $1`, [reviewDbId]);
+          if (existingResp.rows.length === 0) {
+            await query(
+              `INSERT INTO review_responses (review_id, response_text, published_at, generated_by_ai, tone)
+               VALUES ($1, $2, $3, FALSE, 'Owner Direct')`,
+              [reviewDbId, replyComment, replyTime]
+            );
+          } else {
+            await query(
+              `UPDATE review_responses SET response_text = $1, published_at = $2 WHERE id = $3`,
+              [replyComment, replyTime, existingResp.rows[0].id]
+            );
+          }
+          await query(`UPDATE reviews SET reply_status = 'replied' WHERE id = $1`, [reviewDbId]);
+        }
+      }
+
+      await query(`UPDATE google_connections SET last_sync_at = NOW() WHERE id = $1`, [conn.id]);
       if (locationId) {
         await query(`UPDATE google_locations SET last_synced_at = NOW(), sync_status = 'synced' WHERE id = $1`, [locationId]);
       }
+
+      // Record in google_sync_history audit table
+      try {
+        await query(
+          `INSERT INTO google_sync_history (
+             workspace_id, business_id, google_connection_id, sync_type, status,
+             reviews_found, reviews_imported, new_reviews_count, duration_ms
+           ) VALUES ($1, $2, $3, 'scheduled', 'success', $4, $5, $6, 0)`,
+          [
+            biz.workspace_id,
+            biz.id,
+            conn.id,
+            incomingReviews.length,
+            incomingReviews.length,
+            bizNewSynced
+          ]
+        );
+      } catch {}
     }
 
-    return { count: totalSynced, message: `Synced ${totalSynced} new reviews across ${bizList.rows.length} businesses.` };
+    return { count: totalSynced, message: `Synced ${totalSynced} real Google reviews across ${bizList.rows.length} businesses.` };
   }
 
   // =========================================================================
@@ -1018,7 +1139,7 @@ class AutomationEngine {
   }
 
   // =========================================================================
-  // JOB 10: Keyword Discovery Refresh
+  // JOB 10: Keyword Discovery Refresh (7-Day AI Trends Evolution)
   // =========================================================================
   async handleKeywordDiscoveryRefresh({ businessId }) {
     let sql = `SELECT id, name, city FROM business_locations`;
@@ -1029,26 +1150,29 @@ class AutomationEngine {
     }
     const bizList = await query(sql, params);
     let totalGenerated = 0;
+    let totalEvolved = 0;
 
     for (const biz of bizList.rows) {
-      const suggestions = [
-        { kw: `best ${biz.name.toLowerCase()} in ${biz.city || 'ahmedabad'}`, vol: 720, rel: 95 },
-        { kw: `${biz.name.toLowerCase()} near me reviews`, vol: 540, rel: 92 },
-        { kw: `top rated services ${biz.city || 'local'}`, vol: 480, rel: 88 }
-      ];
-
-      for (const s of suggestions) {
-        await query(
-          `INSERT INTO keyword_suggestions (business_id, suggested_keyword, relevance_score, search_volume, source)
-           VALUES ($1, $2, $3, $4, 'ai_discovery')
-           ON CONFLICT DO NOTHING`,
-          [biz.id, s.kw, s.rel, s.vol]
-        ).catch(() => {});
-        totalGenerated++;
+      try {
+        const evResult = await evolveWeeklyKeywordsForBusiness({
+          businessId: biz.id,
+          force: false // Respects 7-day cadence
+        });
+        if (evResult.success && !evResult.alreadyEvolved) {
+          totalEvolved++;
+          totalGenerated += evResult.newSuggestions?.length || 0;
+        }
+      } catch (err) {
+        console.warn(`[Automation Engine] Weekly keyword evolution skipped for biz ${biz.id}:`, err.message);
       }
     }
 
-    return { itemsProcessed: totalGenerated, suggestionsCreated: totalGenerated };
+    return {
+      itemsProcessed: bizList.rows.length,
+      businessesEvolved: totalEvolved,
+      suggestionsCreated: totalGenerated,
+      cadence: '7_days'
+    };
   }
 
   // =========================================================================

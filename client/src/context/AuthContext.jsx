@@ -22,27 +22,27 @@ export const AuthProvider = ({ children }) => {
       setBusinesses(data.businesses || []);
 
       const savedBizId = localStorage.getItem('redes_business_id');
-      const found = data.businesses.find(b => b.id === savedBizId);
-      const defaultName = import.meta.env.VITE_BUSINESS_NAME;
-      const namedBiz = defaultName ? data.businesses.find(b => b.name?.toLowerCase().includes(defaultName.toLowerCase())) : null;
-      const primaryBiz = data.businesses.find(b => b.is_primary);
+      const found = (data.businesses || []).find(b => b.id === savedBizId);
+      const primaryBiz = (data.businesses || []).find(b => b.is_primary);
 
       if (found) {
         setActiveBusiness(found);
-      } else if (namedBiz) {
-        setActiveBusiness(namedBiz);
-        localStorage.setItem('redes_business_id', namedBiz.id);
       } else if (primaryBiz) {
         setActiveBusiness(primaryBiz);
         localStorage.setItem('redes_business_id', primaryBiz.id);
-      } else if (data.businesses.length > 0) {
+      } else if (data.businesses && data.businesses.length > 0) {
         setActiveBusiness(data.businesses[0]);
         localStorage.setItem('redes_business_id', data.businesses[0].id);
+      } else {
+        setActiveBusiness(null);
+        localStorage.removeItem('redes_business_id');
       }
     } catch (err) {
       console.error('[AUTH] Failed to initialize user session:', err);
       localStorage.removeItem('redes_token');
       setUser(null);
+      setBusinesses([]);
+      setActiveBusiness(null);
     } finally {
       setLoading(false);
     }
@@ -112,6 +112,7 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: !!user,
         businesses,
         activeBusiness,
+        setActiveBusiness,
         loading,
         login,
         register,

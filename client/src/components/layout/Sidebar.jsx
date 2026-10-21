@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   BrainCircuit,
@@ -9,86 +9,71 @@ import {
   Search,
   Sparkles,
   Users2,
-  BarChart3,
   FileText,
-  CheckSquare,
-  Bell,
   CreditCard,
   Settings,
   ShieldCheck,
-  ChevronRight,
-  Flame,
   Globe2,
   Zap,
   TrendingUp,
+  Star,
+  LogOut,
   X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 
 export const Sidebar = ({ mobileOpen, setMobileOpen }) => {
-  const { user, activeBusiness } = useAuth();
+  const { user, activeBusiness, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
-  const isAdminUser = ['super_admin', 'admin', 'owner'].includes(user?.role?.toLowerCase());
+  const isAdminUser = ['super_admin', 'owner'].includes(user?.role?.toLowerCase());
 
   const navGroups = [
     {
-      group: 'Core Intelligence',
+      group: 'Main Menu',
       items: [
-        { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-        { label: 'Business Profile', path: '/business-intelligence', icon: BrainCircuit },
-        { label: 'Google Profile', path: '/google', icon: Globe2 },
+        { label: 'Overview', path: '/dashboard', icon: LayoutDashboard },
+        { label: 'Google Reviews', path: '/google-reviews', icon: Star, badge: 'Live', badgeType: 'live' },
+        { label: 'Review Management', path: '/reviews', icon: MessageSquare },
+        { label: 'AI Review Studio', path: '/ai-center', icon: Sparkles },
       ]
     },
     {
-      group: 'Reputation & Reviews',
+      group: 'Local SEO & Growth',
       items: [
-        { label: 'Review Inbox', path: '/reviews', icon: MessageSquare, badge: '6' },
+        { label: 'Geo-Grid Heatmap', path: '/geo-grid', icon: MapPin },
+        { label: 'Target Keywords', path: '/keywords', icon: Search },
+        { label: 'Local SEO Audit', path: '/seo', icon: TrendingUp },
+        { label: 'Competitor Tracker', path: '/competitors', icon: Users2 },
         { label: 'Review Campaigns', path: '/campaigns', icon: QrCode },
+        { label: 'Website Analytics', path: '/website-analytics', icon: Globe2, badge: 'GA4', badgeType: 'ga4' },
       ]
     },
     {
-      group: 'Local SEO & Search',
+      group: 'Management & Config',
       items: [
-        { label: 'Trends Intelligence', path: '/trends', icon: TrendingUp, badge: 'Live Pro' },
-        { label: 'Keyword Engine', path: '/keywords', icon: Search },
-        { label: 'Geo-Grid Heatmap', path: '/geo-grid', icon: MapPin, highlight: true },
-        { label: 'Local SEO Audit', path: '/seo', icon: Sparkles },
-        { label: 'Competitors', path: '/competitors', icon: Users2 },
-      ]
-    },
-    {
-      group: 'Operations & AI',
-      items: [
-        { label: 'AI Center & Approvals', path: '/ai-center', icon: Flame, badge: '2', alert: true },
-        { label: 'Tasks & Actions', path: '/tasks', icon: CheckSquare },
-        { label: 'Analytics', path: '/analytics', icon: BarChart3 },
-        { label: 'Reports', path: '/reports', icon: FileText },
-      ]
-    },
-    {
-      group: 'Workspace & System',
-      items: [
-        { label: 'Notifications', path: '/notifications', icon: Bell },
-        { label: 'Billing & Usage', path: '/billing', icon: CreditCard },
-        { label: 'Pricing & Upgrade', path: '/plans', icon: Zap, badge: 'New Plans' },
+        { label: 'Business Locations', path: '/business-intelligence', icon: BrainCircuit },
+        { label: 'Google Connection', path: '/google', icon: ShieldCheck },
+        { label: 'Sync History', path: '/reports', icon: FileText },
+        { label: 'Billing & Plans', path: '/billing', icon: CreditCard },
         { label: 'Settings', path: '/settings', icon: Settings },
-        ...(isAdminUser ? [{ label: 'Super Admin', path: '/admin', icon: ShieldCheck, badge: 'Admin' }] : [])
+        ...(isAdminUser ? [{ label: 'Super Admin', path: '/admin', icon: ShieldCheck, badge: 'Admin', badgeType: 'admin' }] : [])
       ]
     }
   ];
 
   const content = (
-    <div className="flex flex-col h-full bg-white border-r border-slate-200/90 text-slate-600">
+    <div className="flex flex-col h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 select-none m-0">
       {/* Brand Header */}
-      <div className="flex items-center justify-between px-5 h-16 border-b border-slate-100">
-        <NavLink to="/" className="flex items-center hover:opacity-90 transition-opacity">
-          <img src="/redes-logo.png" alt="Redes Creation" className="h-7 w-auto object-contain" />
+      <div className="flex items-center justify-between px-5 h-14 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 m-0">
+        <NavLink to="/dashboard" className="flex items-center hover:opacity-90 transition-opacity">
+          <img src="/redes-logo.png" alt="Redes Creation" className="h-6 w-auto object-contain" />
         </NavLink>
         {setMobileOpen && (
           <button
             onClick={() => setMobileOpen(false)}
-            className="lg:hidden p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
             aria-label="Close menu"
           >
             <X className="w-5 h-5" />
@@ -96,25 +81,29 @@ export const Sidebar = ({ mobileOpen, setMobileOpen }) => {
         )}
       </div>
 
-      {/* Active Business Mini-Badge */}
+      {/* Active Business Indicator */}
       {activeBusiness && (
-        <div className="mx-4 mt-3 px-3 py-2.5 rounded-xl bg-blue-50/70 border border-blue-100 flex items-center justify-between">
+        <div className="mx-3.5 my-2.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between shrink-0 shadow-2xs">
           <div className="flex items-center gap-2 overflow-hidden">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-xs font-semibold text-slate-800 truncate">{activeBusiness.name}</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+            <span className="text-xs font-semibold text-slate-800 truncate" title={activeBusiness.name}>
+              {activeBusiness.name}
+            </span>
           </div>
-          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-            {Number(activeBusiness.health_score || 94.5).toFixed(0)}%
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100/80 text-emerald-800 shrink-0">
+            {Number(activeBusiness.health_score || 95).toFixed(0)}%
           </span>
         </div>
       )}
 
       {/* Navigation Links */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-4 text-xs font-medium scrollbar-thin scrollbar-thumb-slate-200">
         {navGroups.map((grp, idx) => (
           <div key={idx} className="space-y-1">
-            <span className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{grp.group}</span>
-            <div className="space-y-0.5 mt-1">
+            <span className="px-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+              {grp.group}
+            </span>
+            <div className="space-y-0.5">
               {grp.items.map((item, itemIdx) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
@@ -123,36 +112,29 @@ export const Sidebar = ({ mobileOpen, setMobileOpen }) => {
                     key={itemIdx}
                     to={item.path}
                     onClick={() => setMobileOpen && setMobileOpen(false)}
-                    className={({ isActive }) => `
-                      flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group cursor-pointer
+                    className={`
+                      flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all group cursor-pointer
                       ${isActive
-                        ? 'bg-blue-50 text-[#034bc0] font-bold shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'}
+                        ? 'bg-blue-50 text-[#034bc0] font-bold shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 font-medium'}
                     `}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-[#034bc0]' : 'text-slate-400 group-hover:text-[#034bc0]'}`} />
-                      <span>{item.label}</span>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Icon className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-[#034bc0]' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                      <span className="truncate">{item.label}</span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      {item.badge && (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                          item.alert 
-                            ? 'bg-amber-100 text-amber-800 border border-amber-200' 
-                            : isActive 
-                              ? 'bg-blue-200/80 text-[#034bc0]' 
-                              : 'bg-slate-100 text-slate-600 border border-slate-200'
-                        }`}>
-                          {item.badge}
-                        </span>
-                      )}
-                      {item.highlight && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-100 text-[#034bc0] border border-blue-200 font-bold uppercase tracking-wider">
-                          Heatmap
-                        </span>
-                      )}
-                    </div>
+                    {item.badge && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold shrink-0 ${
+                        item.badgeType === 'live'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
+                          : item.badgeType === 'ga4'
+                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/80'
+                            : 'bg-slate-100 text-slate-600 border border-slate-200'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
                   </NavLink>
                 );
               })}
@@ -161,36 +143,50 @@ export const Sidebar = ({ mobileOpen, setMobileOpen }) => {
         ))}
       </nav>
 
-      {/* Mini Upgrade Promotion Box */}
-      <div className="mx-3 mb-2 p-3 bg-gradient-to-br from-indigo-50 via-blue-50 to-indigo-100/50 rounded-2xl border border-indigo-200/60 shadow-xs">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-5 h-5 rounded-lg bg-[#034bc0] text-white flex items-center justify-center">
-            <Zap className="w-3 h-3 fill-current" />
+      {/* Compact Scale Business / Pro Plan Card */}
+      <div className="mx-3.5 my-2 p-2.5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-between shrink-0 shadow-2xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 rounded-lg bg-[#034bc0] text-white flex items-center justify-center shrink-0 shadow-xs">
+            <Zap className="w-3.5 h-3.5 fill-current" />
           </div>
-          <span className="text-[11px] font-bold text-slate-900">Scale Your Growth</span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold text-slate-900 leading-tight">Scale Business</p>
+            <p className="text-[10px] text-slate-500 leading-tight truncate">Multi-Location & AI</p>
+          </div>
         </div>
-        <p className="text-[10px] text-slate-600 mb-2 leading-tight">
-          Multi-location management, Geo-Grid Heatmaps & AI Auto-Reply engine.
-        </p>
         <NavLink
           to="/plans"
-          className="w-full py-1.5 px-2 bg-[#034bc0] hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold tracking-wide transition flex items-center justify-center gap-1 shadow-xs"
+          className="px-2.5 py-1 rounded-lg bg-[#034bc0] hover:bg-blue-700 text-white text-[10px] font-bold transition shadow-2xs shrink-0"
         >
-          <span>Upgrade Tier</span>
-          <ChevronRight className="w-3 h-3" />
+          Upgrade
         </NavLink>
       </div>
 
-      {/* User Footer Profile */}
-      <div className="p-3 border-t border-slate-100 bg-slate-50/70">
-        <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white hover:shadow-xs transition-all">
-          <div className="w-8 h-8 rounded-full bg-[#034bc0] flex items-center justify-center font-bold text-white text-xs shadow-xs">
-            {user?.fullName?.charAt(0) || 'D'}
+      {/* User Footer Profile & Quick Logout */}
+      <div className="p-3 border-t border-slate-100 bg-slate-50/70 shrink-0">
+        <div className="flex items-center justify-between p-1.5 rounded-xl hover:bg-white hover:shadow-2xs transition-all">
+          <div 
+            onClick={() => navigate('/settings')}
+            className="flex items-center gap-2.5 min-w-0 cursor-pointer flex-1"
+            title="Open Account Settings"
+          >
+            <div className="w-8 h-8 rounded-full bg-[#034bc0] flex items-center justify-center font-bold text-white text-xs shadow-xs shrink-0">
+              {user?.fullName?.charAt(0) || 'D'}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-bold text-slate-800 truncate">{user?.fullName || 'Business Owner'}</span>
+              <span className="text-[10px] text-slate-500 truncate capitalize">{user?.role || 'Owner'} • {user?.plan || 'Agency'}</span>
+            </div>
           </div>
-          <div className="flex flex-col min-w-0 flex-1">
-            <span className="text-xs font-bold text-slate-800 truncate">{user?.fullName || 'Demo User'}</span>
-            <span className="text-[10px] text-slate-500 capitalize">{user?.role || 'Owner'} • {user?.plan || 'Agency'}</span>
-          </div>
+
+          <button
+            onClick={logout}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0 ml-1"
+            title="Log Out"
+            aria-label="Log out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
@@ -199,7 +195,7 @@ export const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   return (
     <>
       {/* Desktop Persistent Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 h-screen sticky top-0 shrink-0 z-30">
+      <aside className="hidden lg:flex flex-col w-64 h-screen sticky top-0 shrink-0 z-30 m-0">
         {content}
       </aside>
 

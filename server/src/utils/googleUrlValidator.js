@@ -1,6 +1,44 @@
 import { query } from '../config/db.js';
 
 /**
+ * Checks whether an IP or hostname resolves to private/internal network subnets (SSRF protection)
+ */
+export const isPrivateOrBlockedHost = (hostname) => {
+  if (!hostname || typeof hostname !== 'string') return true;
+  const lower = hostname.toLowerCase().trim();
+
+  // Localhost & loopback
+  if (lower === 'localhost' || lower === '127.0.0.1' || lower === '::1' || lower === '0.0.0.0') {
+    return true;
+  }
+
+  // AWS/GCP/Cloud metadata service
+  if (lower === '169.254.169.254' || lower.includes('metadata.google.internal')) {
+    return true;
+  }
+
+  // Private IPv4 ranges
+  const ipv4Match = lower.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4Match) {
+    const oct1 = parseInt(ipv4Match[1], 10);
+    const oct2 = parseInt(ipv4Match[2], 10);
+
+    // 10.0.0.0/8
+    if (oct1 === 10) return true;
+    // 172.16.0.0/12 (172.16.x.x - 172.31.x.x)
+    if (oct1 === 172 && oct2 >= 16 && oct2 <= 31) return true;
+    // 192.168.0.0/16
+    if (oct1 === 192 && oct2 === 168) return true;
+    // 169.254.0.0/16 (link-local)
+    if (oct1 === 169 && oct2 === 254) return true;
+    // 127.0.0.0/8 (loopback)
+    if (oct1 === 127) return true;
+  }
+
+  return false;
+};
+
+/**
  * Known dummy/placeholder strings that should be treated as unconfigured
  */
 const DUMMY_PATTERNS = [
@@ -12,6 +50,8 @@ const DUMMY_PATTERNS = [
   'null',
   '[object Object]'
 ];
+
+const PLACES_API_DISCLAIMER = 'Google Places API provides public access to top reviews only (typically up to 5). For complete historical synchronization, connect the official Google Business Profile via OAuth.';
 
 /**
  * Validates and sanitizes a Google Review URL.
@@ -42,7 +82,8 @@ export const validateGoogleReviewUrl = (rawUrl, context = {}) => {
       originalUrl: rawUrl || '',
       type: 'fallback_search',
       placeId: null,
-      message: 'No Google review URL configured. Using default Google Maps search fallback.'
+      message: 'No Google review URL configured. Using default Google Maps search fallback.',
+      disclaimer: PLACES_API_DISCLAIMER
     };
   }
 
@@ -59,7 +100,8 @@ export const validateGoogleReviewUrl = (rawUrl, context = {}) => {
         originalUrl: rawUrl,
         type: 'fallback_search',
         placeId: null,
-        message: `Configured URL contains placeholder/dummy token ("${dummy}"). Fallback generated.`
+        message: `Configured URL contains placeholder/dummy token ("${dummy}"). Fallback generated.`,
+        disclaimer: PLACES_API_DISCLAIMER
       };
     }
   }
@@ -74,11 +116,12 @@ export const validateGoogleReviewUrl = (rawUrl, context = {}) => {
       originalUrl: rawUrl,
       type: 'place_id_writereview',
       placeId: cleaned,
-      message: 'Constructed direct Google write-review URL from Place ID.'
+      message: 'Constructed direct Google write-review URL from Place ID.',
+      disclaimer: PLACES_API_DISCLAIMER
     };
   }
 
-  // Protocol normalization
+  // Protocol normalization & security
   if (!/^https?:\/\//i.test(cleaned)) {
     cleaned = `https://${cleaned}`;
   } else if (/^http:\/\//i.test(cleaned)) {
@@ -97,13 +140,28 @@ export const validateGoogleReviewUrl = (rawUrl, context = {}) => {
       originalUrl: rawUrl,
       type: 'fallback_search',
       placeId: null,
-      message: 'Invalid URL format. Fallback generated.'
+      message: 'Invalid URL format. Fallback generated.',
+      disclaimer: PLACES_API_DISCLAIMER
     };
   }
 
   const hostname = parsed.hostname.toLowerCase();
   const pathname = parsed.pathname;
   const searchParams = parsed.searchParams;
+
+  // SSRF Protection: Reject private/internal networks immediately
+  if (isPrivateOrBlockedHost(hostname)) {
+    return {
+      isValid: false,
+      isFallback: true,
+      url: fallbackUrl,
+      originalUrl: rawUrl,
+      type: 'blocked_private_host',
+      placeId: null,
+      message: 'Access to private, localhost, or internal hostnames is prohibited (SSRF protection).',
+      disclaimer: PLACES_API_DISCLAIMER
+    };
+  }
 
   // 1. search.google.com/local/writereview?placeid=...
   if (hostname.includes('search.google.com') && pathname.includes('/writereview')) {
@@ -115,7 +173,8 @@ export const validateGoogleReviewUrl = (rawUrl, context = {}) => {
       originalUrl: rawUrl,
       type: 'place_id_writereview',
       placeId: placeId || null,
-      message: 'Verified Google direct write-review URL.'
+      message: 'Verified Google direct write-review URL.',
+      disclaimer: PLACES_API_DISCLAIMER
     };
   }
 
@@ -128,7 +187,8 @@ export const validateGoogleReviewUrl = (rawUrl, context = {}) => {
       originalUrl: rawUrl,
       type: 'gbp_shortlink',
       placeId: null,
-      message: 'Verified Google Business Profile short review link (g.page).'
+      message: 'Verified Google Business Profile short review link (g.page).',
+      disclaimer: PLACES_API_DISCLAIMER
     };
   }
 
@@ -141,7 +201,8 @@ export const validateGoogleReviewUrl = (rawUrl, context = {}) => {
       originalUrl: rawUrl,
       type: 'maps_app',
       placeId: null,
-      message: 'Verified Google Maps shortlink (maps.app.goo.gl).'
+      message: 'Verified Google Maps shortlink (maps.app.goo.gl).',
+      disclaimer: PLACES_API_DISCLAIMER
     };
   }
 
@@ -158,7 +219,8 @@ export const validateGoogleReviewUrl = (rawUrl, context = {}) => {
       originalUrl: rawUrl,
       type: cid ? 'maps_cid' : (placeId ? 'place_id_writereview' : (isSearch ? 'maps_search' : 'maps_location')),
       placeId: placeId || null,
-      message: 'Verified Google Maps location/review URL.'
+      message: 'Verified Google Maps location/review URL.',
+      disclaimer: PLACES_API_DISCLAIMER
     };
   }
 
@@ -170,9 +232,72 @@ export const validateGoogleReviewUrl = (rawUrl, context = {}) => {
     originalUrl: rawUrl,
     type: 'fallback_search',
     placeId: null,
-    message: `Domain ${hostname} is not an official Google review domain. Fallback generated.`
+    message: `Domain ${hostname} is not an official Google review domain. Fallback generated.`,
+    disclaimer: PLACES_API_DISCLAIMER
   };
 };
+
+/**
+ * Automatically expands Google Maps shortlinks (maps.app.goo.gl, goo.gl/maps, g.page)
+ * and extracts Place ID, CID, and Canonical Maps URL.
+ */
+export async function expandGoogleMapsShortlink(shortUrl) {
+  if (!shortUrl || typeof shortUrl !== 'string') return { expandedUrl: shortUrl, placeId: null, cid: null };
+  const trimmed = shortUrl.trim();
+  if (!trimmed.includes('goo.gl') && !trimmed.includes('g.page')) {
+    const cidMatch = trimmed.match(/[?&]cid=([0-9]+)/i);
+    const placeIdMatch = trimmed.match(/place_id=([a-zA-Z0-9_\-]+)/i) || trimmed.match(/place\/[^\/]+\/([a-zA-Z0-9_\-]+)/i);
+    return {
+      expandedUrl: trimmed,
+      placeId: placeIdMatch ? placeIdMatch[1] : null,
+      cid: cidMatch ? cidMatch[1] : null
+    };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(trimmed, {
+      method: 'GET',
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      }
+    });
+    clearTimeout(timeout);
+
+    const finalUrl = res.url || trimmed;
+    const cidMatch = finalUrl.match(/[?&]cid=([0-9]+)/i);
+    const placeIdMatch = finalUrl.match(/place_id=([a-zA-Z0-9_\-]+)/i) || 
+                         finalUrl.match(/place\/[^\/]+\/([a-zA-Z0-9_\-]+)/i) ||
+                         finalUrl.match(/!1s(0x[0-9a-fA-F]+:0x[0-9a-fA-F]+)/i);
+
+    let extractedPlaceId = placeIdMatch ? placeIdMatch[1] : null;
+    let extractedCid = cidMatch ? cidMatch[1] : null;
+
+    if (extractedPlaceId && extractedPlaceId.startsWith('0x') && extractedPlaceId.includes(':0x')) {
+      try {
+        const parts = extractedPlaceId.split(':');
+        if (parts[1]) {
+          const hexPart = parts[1].replace(/^0x/, '');
+          const decCid = BigInt('0x' + hexPart).toString(10);
+          extractedCid = extractedCid || decCid;
+        }
+      } catch {}
+    }
+
+    return {
+      expandedUrl: finalUrl,
+      placeId: extractedPlaceId,
+      cid: extractedCid
+    };
+  } catch (err) {
+    console.warn('[URL_VALIDATOR] expandGoogleMapsShortlink warning:', err.message);
+    return { expandedUrl: trimmed, placeId: null, cid: null };
+  }
+}
 
 /**
  * Resolves the configured Google Review URL for a business/location.
@@ -187,33 +312,62 @@ export const validateGoogleReviewUrl = (rawUrl, context = {}) => {
  * @param {string} businessId - Business or Location UUID
  * @returns {Promise<object>} Resolved URL, metadata, and validation
  */
-export const resolveBusinessGoogleReviewUrl = async (businessId) => {
+export const resolveBusinessGoogleReviewUrl = async (businessId, options = {}) => {
   let targetBizId = businessId;
 
-  // If no businessId provided, fetch primary or first business
-  if (!targetBizId) {
+  // If no businessId provided but workspaceId is provided, fetch primary for that workspace
+  if (!targetBizId && options?.workspaceId) {
     const primaryBizRes = await query(
-      `SELECT id FROM business_locations ORDER BY is_primary DESC, created_at ASC LIMIT 1`
+      `SELECT id FROM business_locations WHERE workspace_id = $1 ORDER BY is_primary DESC, created_at ASC LIMIT 1`,
+      [options.workspaceId]
     );
     targetBizId = primaryBizRes.rows[0]?.id || null;
   }
 
-  if (!targetBizId) {
-    const fallbackName = 'My Business Location';
-    const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fallbackName)}`;
+  // If options.testUrl is passed (e.g. from hotel creation before db insert)
+  if (!targetBizId && options?.testUrl) {
+    let resolvedUrl = options.testUrl;
+    let extractedPid = null;
+    let extractedCid = null;
+
+    if (options.testUrl.includes('goo.gl') || options.testUrl.includes('g.page')) {
+      const exp = await expandGoogleMapsShortlink(options.testUrl);
+      resolvedUrl = exp.expandedUrl || options.testUrl;
+      extractedPid = exp.placeId;
+      extractedCid = exp.cid;
+    }
+
+    const testVal = validateGoogleReviewUrl(resolvedUrl, { businessName: options.testName || 'Business Location' });
+    const finalPlaceId = extractedPid || testVal.placeId || null;
+
     return {
       businessId: null,
-      businessName: fallbackName,
+      businessName: options.testName || 'Business Location',
       city: '',
-      configuredUrl: fallbackUrl,
+      configuredUrl: resolvedUrl,
+      googlePlaceId: finalPlaceId,
+      cid: extractedCid,
+      reviewUrl: testVal.url,
+      validation: testVal
+    };
+  }
+
+  if (!targetBizId) {
+    return {
+      businessId: null,
+      businessName: null,
+      city: '',
+      configuredUrl: null,
       googlePlaceId: null,
-      validation: validateGoogleReviewUrl(fallbackUrl, { businessName: fallbackName, city: '' })
+      reviewUrl: null,
+      validation: { isValid: false, reason: 'No business location configured for this workspace' }
     };
   }
 
   // 1. Fetch business details
   const bizRes = await query(
     `SELECT b.id, b.name, b.city, b.address, b.website, b.phone,
+            b.google_place_id, b.google_review_url,
             gl.gbp_location_id, gl.gbp_place_id, gl.website as google_website,
             gl.location_name as google_location_name, gl.is_verified, gl.sync_status
      FROM business_locations b
@@ -243,11 +397,24 @@ export const resolveBusinessGoogleReviewUrl = async (businessId) => {
   };
 
   let candidateUrl = null;
-  let detectedPlaceId = biz.gbp_place_id || null;
+  let detectedPlaceId = biz.google_place_id || biz.gbp_place_id || null;
 
-  // Step 1: If gbp_place_id exists and is not dummy
-  if (biz.gbp_place_id && !DUMMY_PATTERNS.some(d => biz.gbp_place_id.includes(d))) {
-    candidateUrl = `https://search.google.com/local/writereview?placeid=${biz.gbp_place_id}`;
+  // Step 1: If google_place_id / gbp_place_id exists and is not dummy
+  const activePlaceId = biz.google_place_id || biz.gbp_place_id;
+  if (activePlaceId && !DUMMY_PATTERNS.some(d => activePlaceId.includes(d))) {
+    candidateUrl = `https://search.google.com/local/writereview?placeid=${activePlaceId}`;
+    detectedPlaceId = activePlaceId;
+  }
+
+  // Step 1b: If google_review_url is stored on business_locations
+  if (!candidateUrl && biz.google_review_url) {
+    let revUrl = biz.google_review_url;
+    if (revUrl.includes('goo.gl') || revUrl.includes('g.page')) {
+      const exp = await expandGoogleMapsShortlink(revUrl);
+      revUrl = exp.expandedUrl || revUrl;
+      if (exp.placeId) detectedPlaceId = detectedPlaceId || exp.placeId;
+    }
+    candidateUrl = revUrl;
   }
 
   // Step 2: Check google_locations website if it is a google link
@@ -279,14 +446,7 @@ export const resolveBusinessGoogleReviewUrl = async (businessId) => {
     }
   }
 
-  // Step 4: Check environment default ONLY if this business is explicitly Bhagyalaxmi
-  const envUrl = process.env.VITE_GOOGLE_REVIEW_URL || process.env.GOOGLE_REVIEW_URL;
-  const isBhagyalaxmi = (biz.name || '').toLowerCase().includes('bhagyalaxmi');
-  if (!candidateUrl && envUrl && isBhagyalaxmi) {
-    candidateUrl = envUrl.trim();
-  }
-
-  // Step 5: Fallback to this specific location's Google Maps search query (NEVER fallback to another business!)
+  // Step 4: Fallback to this specific location's Google Maps search query (NEVER fallback to another business!)
   if (!candidateUrl) {
     candidateUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${biz.name} ${biz.city || ''}`.trim())}`;
   }

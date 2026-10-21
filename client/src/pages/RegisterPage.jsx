@@ -173,7 +173,7 @@ export default function RegisterPage() {
         </div>
 
         {/* Security Trust Badges */}
-        <div className="flex items-center justify-center gap-6 mt-6 text-xs text-slate-500">
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 mt-6 text-xs text-slate-500">
           <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-emerald-600" /> Multi-Tenant Isolated</span>
           <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-[#034bc0]" /> 14-Day Free Evaluation</span>
         </div>

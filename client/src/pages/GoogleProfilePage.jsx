@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Globe, CheckCircle2, AlertTriangle, RefreshCw, Unlink, ExternalLink,
+  Globe, Map, Link2Off, CheckCircle2, AlertTriangle, RefreshCw, Unlink, ExternalLink,
   MapPin, Phone, Eye, Navigation, PhoneCall, MousePointer, ShieldCheck,
   Calendar, ArrowUpRight, BarChart3, Clock, AlertCircle, Shield,
   Layers, Lock, Check, Zap, HelpCircle, Sparkles
@@ -35,6 +35,9 @@ export default function GoogleProfilePage() {
     actionUrl: 'https://saffronbistro.com/menu',
     mediaUrl: ''
   });
+  const [flywheelPostContext, setFlywheelPostContext] = useState(null);
+  const [availablePostAngles, setAvailablePostAngles] = useState([]);
+  const [activeAngleIndex, setActiveAngleIndex] = useState(0);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -101,6 +104,7 @@ export default function GoogleProfilePage() {
       if (res.success) {
         setShowCreatePostModal(false);
         setPostForm({ topicType: 'STANDARD', summary: '', actionType: 'LEARN_MORE', actionUrl: '', mediaUrl: '' });
+        setFlywheelPostContext(null);
         setSyncMessage({ type: 'success', text: 'Google Post published live to Google Business Profile via OAuth 2.0!' });
         await fetchGoogleData();
       }
@@ -111,19 +115,49 @@ export default function GoogleProfilePage() {
     }
   };
 
-  const handleAiDraftPost = async () => {
+  const handleAiDraftPost = async (forceAngleIdx = null) => {
     try {
       setAiGeneratingPost(true);
-      const drafts = {
-        STANDARD: 'Discover our freshly curated chef signature dishes this week! Prepared with premium local farm produce and authentic culinary spices. Visit our Bodakdev location today.',
-        OFFER: 'Special Weekday Treat: Complimentary gourmet dessert on any fine dining table reservation from Monday to Thursday! Limited banquet tables available.',
-        EVENT: 'Join us for our upcoming Live Music & Gourmet Buffet Evening this Friday at 7:30 PM! Reserve your seating now.'
-      };
-      setPostForm(prev => ({
-        ...prev,
-        summary: drafts[prev.topicType] || drafts.STANDARD,
-        actionUrl: prev.actionUrl || 'https://saffronbistro.com/reservation'
-      }));
+      // Fetch dynamic flywheel intelligence
+      const fw = await api.getFlywheelSummary().catch(() => null);
+      const allPosts = fw?.flywheel?.step5_posts?.suggestedPosts || [];
+      const festival = fw?.flywheel?.step5_posts?.upcomingFestival;
+      const kw = fw?.flywheel?.step1_trends?.topBreakoutKeyword;
+
+      if (allPosts.length > 0) {
+        setAvailablePostAngles(allPosts);
+        const nextIdx = forceAngleIdx !== null 
+          ? forceAngleIdx 
+          : (activeAngleIndex + 1) % allPosts.length;
+        setActiveAngleIndex(nextIdx);
+        const chosen = allPosts[nextIdx] || allPosts[0];
+
+        setPostForm(prev => ({
+          ...prev,
+          summary: chosen.summary,
+          actionType: chosen.actionType || prev.actionType,
+          actionUrl: chosen.actionUrl || prev.actionUrl
+        }));
+        setFlywheelPostContext({
+          keyword: chosen.targetKeyword || kw,
+          festival: chosen.festivalContext || festival || 'Festive Season',
+          label: chosen.label,
+          autoOptimized: true
+        });
+      } else {
+        const drafts = {
+          STANDARD: 'Discover our freshly curated chef signature dishes this week! Prepared with premium local farm produce and authentic culinary spices. Visit our Bodakdev location today.',
+          OFFER: 'Special Weekday Treat: Complimentary gourmet dessert on any fine dining table reservation from Monday to Thursday! Limited banquet tables available.',
+          EVENT: 'Join us for our upcoming Live Music & Gourmet Buffet Evening this Friday at 7:30 PM! Reserve your seating now.'
+        };
+        setPostForm(prev => ({
+          ...prev,
+          summary: drafts[prev.topicType] || drafts.STANDARD,
+          actionUrl: prev.actionUrl || 'https://saffronbistro.com/reservation'
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to generate AI post draft:', err);
     } finally {
       setAiGeneratingPost(false);
     }
@@ -254,96 +288,104 @@ export default function GoogleProfilePage() {
 
   return (
     <div className="space-y-6">
-      {/* Top Header Card */}
-      <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 rounded-3xl p-6 lg:p-8 text-white relative overflow-hidden shadow-xl border border-blue-800/40">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
+      {/* Top Header Card (Exact match to Screenshot 2) */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
+        {/* Badges Stack */}
+        <div className="space-y-2.5">
+          {/* Row 1: Official GBP Integration */}
           <div>
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="px-3 py-1 bg-blue-500/30 text-blue-200 border border-blue-400/30 text-xs font-semibold rounded-full flex items-center gap-1.5 backdrop-blur-md">
-                <Globe className="w-3.5 h-3.5 text-blue-300" />
-                OFFICIAL GBP INTEGRATION
-              </span>
-              {isConnected ? (
-                <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold rounded-full flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> OAuth Active
-                </span>
-              ) : (
-                <span className="px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold rounded-full flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" /> Connection Required
-                </span>
-              )}
-              <span className="px-3 py-1 bg-slate-800/80 text-slate-300 border border-slate-700 text-xs font-medium rounded-full flex items-center gap-1">
-                <Lock className="w-3 h-3 text-emerald-400" /> AES-256 Token Protection
-              </span>
-              {isClient && (
-                <span className="px-3 py-1 bg-blue-400/20 text-blue-200 border border-blue-300/30 text-xs font-semibold rounded-full flex items-center gap-1">
-                  <Shield className="w-3 h-3 text-blue-300" /> Client Telemetry View
-                </span>
-              )}
-            </div>
-            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white flex items-center gap-3">
-              Google Business Profile Sync & Insights
-            </h1>
-            <p className="text-blue-200/80 text-sm mt-1 max-w-2xl leading-relaxed">
-              Official two-way integration syncing profile attributes, categories, services, reviews, and Google Maps search actions without prohibited scraping.
-            </p>
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#eff6ff] text-[#1d4ed8] border border-[#bfdbfe] text-[11px] font-black uppercase tracking-wider">
+              <Globe className="w-3.5 h-3.5 text-[#1d4ed8]" />
+              OFFICIAL GBP INTEGRATION
+            </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 self-stretch lg:self-auto justify-end">
+          {/* Row 2: Secondary Metadata Badges */}
+          <div className="flex flex-wrap items-center gap-2">
             {isConnected ? (
-              <>
-                <button
-                  onClick={() => setShowCreatePostModal(true)}
-                  className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/30 transition flex items-center gap-2 cursor-pointer"
-                >
-                  <Sparkles className="w-4 h-4 text-amber-300" /> Create Google Post
-                </button>
-                {!isClient && (
-                  <>
-                    <button
-                      onClick={handleOpenMappingModal}
-                      className="px-4 py-2.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-400/40 rounded-xl text-sm font-semibold transition flex items-center gap-2 cursor-pointer"
-                    >
-                      <Layers className="w-4 h-4" /> Map Location
-                    </button>
-                    <button
-                      onClick={handleDisconnect}
-                      className="px-4 py-2.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/40 rounded-xl text-sm font-semibold transition flex items-center gap-2 cursor-pointer"
-                    >
-                      <Unlink className="w-4 h-4" /> Disconnect
-                    </button>
-                  </>
-                )}
-                {isClient && (
-                  <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 bg-blue-500/20 text-blue-200 border border-blue-400/30 rounded-xl text-xs font-bold">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    OAuth Managed by Agency
-                  </span>
-                )}
-                <button
-                  onClick={handleSyncNow}
-                  disabled={syncing}
-                  className="px-5 py-2.5 bg-[#034bc0] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-blue-600/30 transition flex items-center gap-2 disabled:opacity-50 cursor-pointer"
-                >
-                  <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                  <span>{syncing ? 'Synchronizing...' : 'Sync Now'}</span>
-                </button>
-              </>
-            ) : isClient ? (
-              <div className="px-4 py-2.5 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-1.5">
-                <Shield className="w-4 h-4 text-blue-400" />
-                <span>Connection Managed by Agency Administrator</span>
-              </div>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ecfdf5] text-[#15803d] border border-[#a7f3d0] text-xs font-bold">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                OAuth Active
+              </span>
             ) : (
-              <button
-                onClick={() => setShowConnectModal(true)}
-                className="px-6 py-2.5 bg-[#034bc0] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-blue-500/30 transition flex items-center gap-2 cursor-pointer"
-              >
-                <Globe className="w-4 h-4" /> Connect Google Account
-              </button>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                Connection Required
+              </span>
             )}
+
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold">
+              <Lock className="w-3.5 h-3.5 text-slate-500" />
+              AES-256 Token Protection
+            </span>
+
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 text-xs font-medium">
+              <Shield className="w-3.5 h-3.5 text-slate-500" />
+              Client Telemetry View
+            </span>
           </div>
+        </div>
+
+        {/* Title & Description */}
+        <div className="space-y-1.5">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+            Google Business Profile Sync & Insights
+          </h1>
+          <p className="text-sm font-normal text-slate-500 dark:text-slate-400 leading-relaxed max-w-2xl">
+            Official two-way integration syncing profile attributes, categories, services, reviews, and Google Maps search actions without prohibited scraping.
+          </p>
+        </div>
+
+        {/* Action Controls (2x2 Grid) */}
+        <div className="pt-2">
+          {isConnected ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {/* Button 1: Create Google Post (Solid Blue) */}
+              <button
+                onClick={() => setShowCreatePostModal(true)}
+                className="w-full py-3.5 px-4 rounded-xl sm:rounded-2xl bg-[#1d6ee8] hover:bg-[#155fc7] text-white font-bold text-sm shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98"
+              >
+                <Sparkles className="w-4 h-4 text-white" />
+                <span>Create Google Post</span>
+              </button>
+
+              {/* Button 2: Map Location (White with Blue Border) */}
+              <button
+                onClick={handleOpenMappingModal}
+                className="w-full py-3.5 px-4 rounded-xl sm:rounded-2xl bg-white hover:bg-blue-50/60 dark:bg-slate-900 border border-[#2563eb] text-[#1d4ed8] font-bold text-sm shadow-2xs flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98"
+              >
+                <Map className="w-4 h-4 text-[#1d4ed8] shrink-0" />
+                <span>Map Location</span>
+              </button>
+
+              {/* Button 3: Disconnect (Soft Rose with Red Border & Text) */}
+              <button
+                onClick={handleDisconnect}
+                className="w-full py-3.5 px-4 rounded-xl sm:rounded-2xl bg-[#fee2e2]/60 hover:bg-rose-100 dark:bg-rose-950/30 border border-[#fca5a5] text-[#e11d48] font-bold text-sm shadow-2xs flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98"
+              >
+                <Link2Off className="w-4 h-4 text-[#e11d48] shrink-0" />
+                <span>Disconnect</span>
+              </button>
+
+              {/* Button 4: Sync Now (Solid Blue) */}
+              <button
+                onClick={handleSyncNow}
+                disabled={syncing}
+                className="w-full py-3.5 px-4 rounded-xl sm:rounded-2xl bg-[#1d6ee8] hover:bg-[#155fc7] text-white font-bold text-sm shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                <span>{syncing ? 'Synchronizing...' : 'Sync Now'}</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowConnectModal(true)}
+              className="w-full py-3.5 px-6 bg-[#1d6ee8] hover:bg-[#155fc7] text-white rounded-xl sm:rounded-2xl text-sm font-bold shadow-sm transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+            >
+              <Globe className="w-4 h-4" />
+              <span>Connect Google Account</span>
+            </button>
+          )}
         </div>
 
         {/* Sync status alert */}
@@ -865,6 +907,51 @@ export default function GoogleProfilePage() {
                     <span>{aiGeneratingPost ? 'Drafting...' : 'Draft with AI (GPT-4o)'}</span>
                   </button>
                 </div>
+                {flywheelPostContext && (
+                  <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-[11px] text-emerald-800 dark:text-emerald-300">
+                    <div className="flex items-center gap-1.5 font-bold min-w-0">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span className="truncate">SEO Keyword Injected: <strong>"{flywheelPostContext.keyword}"</strong></span>
+                    </div>
+                    <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full font-black shrink-0 text-emerald-800 dark:text-emerald-200">
+                      🎉 {flywheelPostContext.festival}
+                    </span>
+                  </div>
+                )}
+                {/* Dynamic Content Angle Switcher */}
+                {availablePostAngles.length > 0 && (
+                  <div className="space-y-1.5 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                        Choose Different Content Angle:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleAiDraftPost()}
+                        className="text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Cycle Next</span>
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {availablePostAngles.map((p, idx) => (
+                        <button
+                          key={p.angle}
+                          type="button"
+                          onClick={() => handleAiDraftPost(idx)}
+                          className={`p-2 rounded-lg text-left text-[11px] font-bold transition border cursor-pointer ${
+                            activeAngleIndex === idx
+                              ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-400 dark:border-blue-600 shadow-xs ring-1 ring-blue-500/20'
+                              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-300'
+                          }`}
+                        >
+                          <div className="truncate">{p.label}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <textarea
                   rows={4}
                   required

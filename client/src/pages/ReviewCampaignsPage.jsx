@@ -749,7 +749,7 @@ export const ReviewCampaignsPage = () => {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full min-w-[750px] text-left text-xs">
                   <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
                     <tr>
                       <th className="py-3 px-4">Campaign</th>
@@ -879,6 +879,26 @@ export const ReviewCampaignsPage = () => {
                                   <Copy className="w-3.5 h-3.5" />
                                 )}
                               </button>
+
+                              {/* WhatsApp Share */}
+                              <a
+                                href={`https://wa.me/?text=${encodeURIComponent(`Hi! We would love your feedback for ${camp.business_name || activeBusiness?.name || 'us'}. Please share your review here: ${getDisplayReviewLink(camp.review_link)}`)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 transition cursor-pointer"
+                                title="1-Click WhatsApp Share"
+                              >
+                                <Smartphone className="w-3.5 h-3.5" />
+                              </a>
+
+                              {/* SMS Share */}
+                              <a
+                                href={`sms:?body=${encodeURIComponent(`Please share your genuine experience with ${camp.business_name || activeBusiness?.name || 'us'}: ${getDisplayReviewLink(camp.review_link)}`)}`}
+                                className="p-1.5 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition cursor-pointer"
+                                title="1-Click SMS Share"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                              </a>
 
                               {/* View Feedbacks */}
                               <button
@@ -1205,7 +1225,8 @@ export const ReviewCampaignsPage = () => {
           </div>
 
           <div className="rounded-2xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-            <table className="w-full text-left text-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[650px] text-left text-xs">
               <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
                   <th className="py-3 px-4">Campaign</th>
@@ -1260,6 +1281,7 @@ export const ReviewCampaignsPage = () => {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -1293,7 +1315,8 @@ export const ReviewCampaignsPage = () => {
           </div>
 
           <div className="rounded-2xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-            <table className="w-full text-left text-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[650px] text-left text-xs">
               <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
                   <th className="py-3 px-4">Customer</th>
@@ -1353,6 +1376,7 @@ export const ReviewCampaignsPage = () => {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -1470,28 +1494,40 @@ export const ReviewCampaignsPage = () => {
         </div>
       )}
 
-      {/* CREATE REVIEW CAMPAIGN MODAL (EXACT SPEC MATCHING IMAGE 2) */}
+      {/* CREATE REVIEW CAMPAIGN MODAL (Clean Light Theme Specification) */}
       {wizardOpen && (
         <div 
-          className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
           onClick={() => setWizardOpen(false)}
         >
           <div 
-            className="campaign-dark-modal w-full max-w-lg rounded-3xl shadow-2xl shadow-black/90 p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-200"
+            className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200/90 p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div>
-              <h3 className="modal-title text-xl font-bold tracking-tight">
-                Create Review Campaign
-              </h3>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+              <div>
+                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
+                  Create Review Campaign
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Generate customer review collection campaigns across QR, WhatsApp, and SMS.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWizardOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             {/* Modal Body / Form */}
             <form onSubmit={handleCreateReviewCampaign} className="space-y-4">
               {/* Campaign Name */}
-              <div className="space-y-2">
-                <label className="field-label block">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 block">
                   Campaign Name
                 </label>
                 <input
@@ -1499,7 +1535,7 @@ export const ReviewCampaignsPage = () => {
                   value={wName}
                   onChange={(e) => setWName(e.target.value)}
                   placeholder="e.g. Table Billfold QR or Checkout Counter"
-                  className="dark-input w-full px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 transition"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500 bg-slate-50/70 hover:bg-white focus:bg-white transition"
                   autoFocus
                 />
               </div>
@@ -1507,41 +1543,41 @@ export const ReviewCampaignsPage = () => {
               {/* Channel & Campaign Type in 2 Columns */}
               <div className="grid grid-cols-2 gap-3.5 sm:gap-4">
                 {/* Channel */}
-                <div className="space-y-2">
-                  <label className="field-label block">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 block">
                     Channel
                   </label>
                   <div className="relative">
                     <select
                       value={wChannel}
                       onChange={(e) => setWChannel(e.target.value)}
-                      className="dark-select w-full px-3.5 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 transition appearance-none cursor-pointer pr-9"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50/70 hover:bg-white focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition appearance-none cursor-pointer pr-9"
                     >
-                      <option value="In-Store QR Code" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>In-Store QR Code</option>
-                      <option value="WhatsApp" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>WhatsApp</option>
-                      <option value="SMS" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>SMS</option>
-                      <option value="Email" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>Email</option>
+                      <option value="In-Store QR Code">In-Store QR Code</option>
+                      <option value="WhatsApp">WhatsApp</option>
+                      <option value="SMS">SMS</option>
+                      <option value="Email">Email</option>
                     </select>
                     <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
 
                 {/* Campaign Type */}
-                <div className="space-y-2">
-                  <label className="field-label block">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 block">
                     Campaign Type
                   </label>
                   <div className="relative">
                     <select
                       value={wType}
                       onChange={(e) => setWType(e.target.value)}
-                      className="dark-select w-full px-3.5 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 transition appearance-none cursor-pointer pr-9"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50/70 hover:bg-white focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition appearance-none cursor-pointer pr-9"
                     >
-                      <option value="Post Dining Service" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>Post Dining Service</option>
-                      <option value="In-Store / Visit" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>In-Store / Visit</option>
-                      <option value="Post-Service Follow-up" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>Post-Service Follow-up</option>
-                      <option value="Post-Purchase Checkout" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>Post-Purchase Checkout</option>
-                      <option value="Appointment / Consultation" style={{ backgroundColor: '#0b1327', color: '#ffffff' }}>Appointment / Consultation</option>
+                      <option value="Post Dining Service">Post Dining Service</option>
+                      <option value="In-Store / Visit">In-Store / Visit</option>
+                      <option value="Post-Service Follow-up">Post-Service Follow-up</option>
+                      <option value="Post-Purchase Checkout">Post-Purchase Checkout</option>
+                      <option value="Appointment / Consultation">Appointment / Consultation</option>
                     </select>
                     <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
@@ -1549,8 +1585,8 @@ export const ReviewCampaignsPage = () => {
               </div>
 
               {/* Customer Welcome Prompt */}
-              <div className="space-y-2">
-                <label className="field-label block">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 block">
                   Customer Welcome Prompt
                 </label>
                 <textarea
@@ -1558,17 +1594,17 @@ export const ReviewCampaignsPage = () => {
                   value={wPrompt}
                   onChange={(e) => setWPrompt(e.target.value)}
                   placeholder="How was your experience with us?"
-                  className="dark-textarea w-full p-3 sm:p-3.5 text-sm leading-relaxed resize-y focus:outline-none transition"
+                  className="w-full p-3.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500 bg-slate-50/70 hover:bg-white focus:bg-white transition leading-relaxed resize-y"
                 />
               </div>
 
               {/* Google Review Destination / Place ID (Location Specific) */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="field-label block">
+                  <label className="text-xs font-bold text-slate-700 block">
                     Google Review Link / Place ID
                   </label>
-                  <span className="text-[10px] text-slate-400">
+                  <span className="text-[10px] font-semibold text-slate-500">
                     {activeBusiness?.name ? `Mapped to: ${activeBusiness.name}` : 'Optional'}
                   </span>
                 </div>
@@ -1577,26 +1613,26 @@ export const ReviewCampaignsPage = () => {
                   value={wGoogleUrl}
                   onChange={(e) => setWGoogleUrl(e.target.value)}
                   placeholder="https://search.google.com/local/writereview?placeid=... or Maps URL"
-                  className="dark-input w-full px-4 py-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-400 transition"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500 bg-slate-50/70 hover:bg-white focus:bg-white transition"
                 />
-                <p className="text-[10px] text-slate-400 leading-normal">
-                  Leave blank to auto-use <strong>{activeBusiness?.name || 'this location'}</strong>'s dedicated Google Maps profile.
+                <p className="text-[11px] text-slate-500 leading-normal">
+                  Leave blank to auto-use <strong className="text-slate-700">{activeBusiness?.name || 'this location'}</strong>'s dedicated Google Maps profile.
                 </p>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-5 pt-3">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setWizardOpen(false)}
-                  className="cancel-btn font-medium text-sm transition cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={wSubmitting}
-                  className="submit-btn px-6 py-3 rounded-2xl font-bold text-sm transition cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                  className="px-6 py-2.5 rounded-xl bg-[#034bc0] hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition cursor-pointer flex items-center gap-2 disabled:opacity-50"
                 >
                   {wSubmitting ? (
                     <>

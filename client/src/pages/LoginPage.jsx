@@ -55,12 +55,39 @@ export default function LoginPage() {
 
         {/* Clean Login Card */}
         <div className="bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow">
-          {error && (
-            <div className="mb-5 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-              <span>{error}</span>
+          {/* Demo Quick-Fill Credentials */}
+          <div className="mb-5 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+            <span className="font-bold text-slate-600 block mb-1.5 uppercase text-[10px] tracking-wider">
+              Quick 1-Click Demo Login:
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('owner@redescreation.com');
+                  setPassword('Admin@123');
+                  setError(null);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#034bc0] border border-blue-200 font-bold text-[11px] transition-colors cursor-pointer flex items-center gap-1"
+              >
+                <span>👑 Owner</span>
+                <span className="text-slate-400 font-normal">(owner@...)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('admin@redescreation.com');
+                  setPassword('Admin@123');
+                  setError(null);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[11px] transition-colors cursor-pointer flex items-center gap-1"
+              >
+                <span>🛡️ Admin</span>
+                <span className="text-slate-400 font-normal">(admin@...)</span>
+              </button>
             </div>
-          )}
+            <span className="text-[10px] text-slate-400 mt-1.5 block">Default password: Admin@123</span>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -136,7 +163,7 @@ export default function LoginPage() {
         </div>
 
         {/* Trust Footnote */}
-        <div className="flex items-center justify-center gap-6 mt-6 text-xs text-slate-500">
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 mt-6 text-xs text-slate-500">
           <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-emerald-600" /> Multi-Tenant Isolated</span>
           <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-[#034bc0]" /> Google Verified Partner</span>
         </div>

@@ -22,7 +22,7 @@ export const tenantIsolation = async (req, res, next) => {
     req.workspaceId = requestedWorkspace;
 
     // Resolve active business location safely for GET/POST
-    let businessId = req.headers['x-business-id'] || req.query?.business_id || req.body?.business_id;
+    let businessId = req.headers['x-business-id'] || req.query?.businessId || req.query?.business_id || req.body?.businessId || req.body?.business_id;
     if (businessId === 'undefined' || businessId === 'null') {
       businessId = null;
     }

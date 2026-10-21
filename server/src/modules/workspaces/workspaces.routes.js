@@ -5,6 +5,11 @@ import {
   getMembers,
   addMember,
   updateMemberRole,
+  updateMemberDetails,
+  resetMemberPassword,
+  deactivateMember,
+  reactivateMember,
+  deleteMember,
   getClients,
   createClient
 } from './workspaces.controller.js';
@@ -21,10 +26,16 @@ router.get('/current', getCurrentWorkspace);
 router.get('/members', getMembers);
 router.get('/clients', getClients);
 
-// Level 3: Restricted - Client has users.manage ❌ & settings.manage ❌
+// Level 3: Restricted Actions - Only Owner and Admin can manage members & settings
 router.put('/current', authorize(['owner', 'admin']), updateWorkspace);
 router.post('/members', authorize(['owner', 'admin']), addMember);
+router.put('/members/:id', updateMemberDetails);
 router.put('/members/:id/role', authorize(['owner', 'admin']), updateMemberRole);
+router.post('/members/:id/reset-password', resetMemberPassword);
+router.patch('/members/:id/deactivate', authorize(['owner', 'admin']), deactivateMember);
+router.patch('/members/:id/reactivate', authorize(['owner', 'admin']), reactivateMember);
+router.delete('/members/:id', authorize(['owner', 'admin']), deleteMember);
 router.post('/clients', authorize(['owner', 'admin']), createClient);
 
 export default router;
+

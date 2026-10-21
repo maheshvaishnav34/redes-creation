@@ -30,6 +30,7 @@ import {
   CheckSquare
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { GoogleReviewsSection } from '../components/reviews/GoogleReviewsSection.jsx';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -825,6 +826,12 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* REAL GOOGLE REVIEWS SECTION */}
+      <GoogleReviewsSection
+        title="Genuine Customer Experiences on Google"
+        subtitle="Real ratings, total reviews, and authentic customer feedback pulled directly from Google Maps Platform."
+      />
 
       {/* PRICING SECTION */}
       <section id="pricing" className="py-16 lg:py-24 bg-slate-50">

@@ -582,16 +582,40 @@ export const getPublicCampaignDetails = async (req, res, next) => {
     if (campRes.rows.length === 0) {
       const defaultBiz = await query(`SELECT b.id, b.name, b.website, b.phone, b.city FROM business_locations b LIMIT 1`);
       const fallbackName = slug ? slug.replace(/-/g, ' ') : (defaultBiz.rows[0]?.name || 'Redes Creation Partner');
+      const now = Date.now();
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      const weekIndex = (Math.floor(now / SEVEN_DAYS_MS) % 4) + 1;
+      const daysRemaining = 7 - Math.floor((now % SEVEN_DAYS_MS) / (24 * 60 * 60 * 1000));
+      const fallbackKeywords = [
+        'Full Stack Web Development',
+        'Python Programming Training',
+        'Google Reviews Optimization',
+        'Local SEO & 3-Pack Growth',
+        'Career Placement Assistance'
+      ];
+
       return res.json({
         success: true,
         campaign: {
           id: 'demo-campaign',
           name: slug ? slug.replace(/-/g, ' ').toUpperCase() : 'Client Experience Feedback',
+          business_id: defaultBiz.rows[0]?.id || null,
           business_name: fallbackName,
           business_website: defaultBiz.rows[0]?.website || 'https://redescreation.in',
           business_phone: defaultBiz.rows[0]?.phone || '+91 79 4890 5500',
           city: defaultBiz.rows[0]?.city || 'Ahmedabad',
-          services: ['Website Designing & Development', 'Google Review Intelligence', 'Local SEO & Geo-Grid', 'Digital Marketing'],
+          services: ['Full Stack Web Development', 'Python Programming', 'MERN Stack Development', 'Software Testing', 'IT Career Placement'],
+          trending_keywords: fallbackKeywords,
+          weekly_cycle_info: {
+            cycleDays: 7,
+            weekIndex,
+            daysRemaining: Math.max(1, Math.min(7, daysRemaining)),
+            activeTopKeyword: fallbackKeywords[0],
+            topKeywords: fallbackKeywords,
+            bannerTheme: `week_${weekIndex}`,
+            rotatedAt: new Date(now - (now % SEVEN_DAYS_MS)).toISOString(),
+            nextRotationDue: new Date(now - (now % SEVEN_DAYS_MS) + SEVEN_DAYS_MS).toISOString()
+          },
           google_review_url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fallbackName + ' Ahmedabad')}`,
           google_place_id: null,
           google_business_url: 'https://business.google.com/in/business-profile/?ppsrc=GPDA2',
@@ -632,6 +656,53 @@ export const getPublicCampaignDetails = async (req, res, next) => {
     }
 
     campaign.services = finalServices;
+
+    // Attach 7-Day Active Evolved Keywords & Weekly Cycle Info for SEO-enhanced customer review drafting
+    let trendingKeywords = [];
+    const now = Date.now();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const weekIndex = (Math.floor(now / SEVEN_DAYS_MS) % 4) + 1;
+    const daysRemaining = 7 - Math.floor((now % SEVEN_DAYS_MS) / (24 * 60 * 60 * 1000));
+
+    if (campaign.business_id) {
+      try {
+        const kwRes = await query(
+          `SELECT keyword, search_volume, intent, is_primary FROM keywords
+           WHERE business_id = $1 AND status = 'approved'
+           ORDER BY is_primary DESC, relevance DESC, search_volume DESC
+           LIMIT 6`,
+          [campaign.business_id]
+        );
+        trendingKeywords = kwRes.rows.map(r => r.keyword);
+      } catch (kwErr) {
+        console.warn('[CAMPAIGN_PUBLIC] Keywords fetch notice:', kwErr.message);
+      }
+    }
+
+    // Fallbacks if no keywords yet
+    if (!trendingKeywords || trendingKeywords.length === 0) {
+      if (isTechOrTraining) {
+        trendingKeywords = ['Full Stack Web Development', 'Python Programming', 'Live Project Training', 'IT Placement Support'];
+      } else if (isDental) {
+        trendingKeywords = ['Painless Dental Treatment', 'Teeth Whitening Clinic', 'Dental Implants Specialist', 'Top Rated Dentist'];
+      } else if (isDining) {
+        trendingKeywords = ['Authentic Multi-Cuisine Dining', 'Best Family Restaurant', 'Chef Signature Dishes', '5-Star Hospitality'];
+      } else {
+        trendingKeywords = ['Professional Service Quality', 'Top Rated Local Agency', 'Quick Reliable Support', 'Customer Satisfaction'];
+      }
+    }
+
+    campaign.trending_keywords = trendingKeywords;
+    campaign.weekly_cycle_info = {
+      cycleDays: 7,
+      weekIndex,
+      daysRemaining: Math.max(1, Math.min(7, daysRemaining)),
+      activeTopKeyword: trendingKeywords[0] || 'Quality Service & Experience',
+      topKeywords: trendingKeywords,
+      bannerTheme: `week_${weekIndex}`,
+      rotatedAt: new Date(now - (now % SEVEN_DAYS_MS)).toISOString(),
+      nextRotationDue: new Date(now - (now % SEVEN_DAYS_MS) + SEVEN_DAYS_MS).toISOString()
+    };
 
     // Validate & resolve verified Google review destination URL
     const validatedResult = validateGoogleReviewUrl(campaign.google_review_url, {
@@ -685,8 +756,7 @@ export const submitCustomerFeedback = async (req, res, next) => {
     let actualCampId = campRes.rows[0]?.id || null;
 
     if (!businessId) {
-      const fallbackBiz = await query(`SELECT id FROM business_locations LIMIT 1`);
-      businessId = fallbackBiz.rows[0]?.id || null;
+      return res.status(400).json({ success: false, error: 'Target business or campaign not found.' });
     }
 
     let createdReviewId = null;
@@ -796,8 +866,7 @@ export const autoPostReviewToGoogle = async (req, res, next) => {
     let googleReviewUrl = campRes.rows[0]?.google_review_url;
 
     if (!businessId) {
-      const fallbackBiz = await query(`SELECT id FROM business_locations ORDER BY is_primary DESC, created_at ASC LIMIT 1`);
-      businessId = fallbackBiz.rows[0]?.id || null;
+      return res.status(400).json({ success: false, error: 'Target business or campaign not found.' });
     }
 
     if (!googleReviewUrl || googleReviewUrl.includes('ChIJr2oQ32_9XzkRLw5P7A8V-uU')) {
@@ -1415,8 +1484,7 @@ export const trackCampaignEvent = async (req, res, next) => {
     let targetBizId = camp?.business_id || metadata?.businessId || null;
 
     if (!targetBizId && !targetCampId) {
-      const fbBiz = await query(`SELECT id FROM business_locations ORDER BY is_primary DESC, created_at ASC LIMIT 1`);
-      targetBizId = fbBiz.rows[0]?.id || null;
+      return res.status(400).json({ success: false, error: 'Missing campaign or business identifier.' });
     }
 
     // Always log to campaign_events for audit & funnel analytics

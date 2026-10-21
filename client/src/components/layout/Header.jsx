@@ -24,10 +24,28 @@ import { useTheme } from '../../context/ThemeContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api.js';
 
+const formatIndustryLabel = (industryId) => {
+  const map = {
+    hotel: 'Hotel & Resort',
+    hospitality: 'Hotel & Resort',
+    dental: 'Dental & Healthcare',
+    education_training: 'Education & IT Training',
+    school: 'Education & IT Training',
+    it_software: 'IT & Coworking',
+    restaurant: 'Restaurant & Dining'
+  };
+  if (industryId && map[industryId.toLowerCase()]) {
+    return map[industryId.toLowerCase()];
+  }
+  return industryId ? industryId.replace(/_/g, ' ') : 'General Business';
+};
+
 export const Header = ({ onOpenCommandPalette, onToggleMobileSidebar }) => {
   const { user, businesses, activeBusiness, switchBusiness, refreshUserData, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+
+  const isSuperAdminUser = ['super_admin', 'owner'].includes(user?.role?.toLowerCase());
 
   const [bizDropdownOpen, setBizDropdownOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -124,32 +142,43 @@ export const Header = ({ onOpenCommandPalette, onToggleMobileSidebar }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-20 h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-3 sm:px-4 lg:px-8 flex items-center justify-between transition-colors shadow-xs">
+      <header className="sticky top-0 z-40 h-14 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-3 sm:px-4 lg:px-6 flex items-center justify-between transition-colors shadow-2xs w-full m-0 shrink-0">
       {/* Left Area: Mobile Menu + Business Selector */}
-      <div className="flex items-center gap-1.5 sm:gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
         <button
           onClick={onToggleMobileSidebar}
-          className="lg:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+          className="lg:hidden p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
           aria-label="Open sidebar"
         >
           <Menu className="w-5 h-5" />
         </button>
 
         {/* Multi-Location Switcher */}
-        <div className="relative" ref={bizDropdownRef}>
+        <div className="relative min-w-0" ref={bizDropdownRef}>
           <button
             onClick={() => setBizDropdownOpen(!bizDropdownOpen)}
-            className="flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 transition-all text-xs font-semibold cursor-pointer active:scale-98"
+            className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-900 border border-slate-200 hover:border-slate-300 transition-all text-xs font-semibold cursor-pointer active:scale-98 shadow-2xs h-8.5 max-w-[140px] min-[400px]:max-w-[190px] sm:max-w-none"
+            title="Switch Business Location"
           >
-            <Building2 className="w-4 h-4 text-[#034bc0] shrink-0" />
-            <span className="max-w-[100px] sm:max-w-[180px] md:max-w-[220px] truncate">
-              {activeBusiness ? activeBusiness.name : 'Select Business'}
-            </span>
-            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${bizDropdownOpen ? 'rotate-180' : ''}`} />
+            <div className="w-5 h-5 rounded-md bg-blue-50 text-[#034bc0] flex items-center justify-center shrink-0">
+              <Building2 className="w-3.5 h-3.5" />
+            </div>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+              <span className="max-w-[70px] min-[360px]:max-w-[95px] min-[400px]:max-w-[130px] sm:max-w-[170px] md:max-w-[210px] truncate font-bold text-slate-900 text-xs">
+                {activeBusiness ? activeBusiness.name : 'Select Business'}
+              </span>
+            </div>
+            {businesses.length > 1 && (
+              <span className="hidden xl:inline-flex items-center px-1.5 py-0.2 text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200/80 rounded shrink-0">
+                {businesses.length}
+              </span>
+            )}
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-150 ${bizDropdownOpen ? 'rotate-180 text-slate-700' : ''}`} />
           </button>
 
           {bizDropdownOpen && (
-            <div className="absolute left-0 mt-2 min-w-full w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] rounded-2xl bg-white border border-slate-200 shadow-2xl p-2 z-50 text-slate-800 animate-in fade-in zoom-in-95 duration-100">
+            <div className="absolute left-0 mt-2 w-72 min-[400px]:w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] rounded-2xl bg-white border border-slate-200 shadow-2xl p-2 z-50 text-slate-800 animate-in fade-in zoom-in-95 duration-100">
               <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-slate-100 pb-2">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Switch Business Location
@@ -177,9 +206,15 @@ export const Header = ({ onOpenCommandPalette, onToggleMobileSidebar }) => {
                         <span className="font-semibold truncate text-[13px]">{b.name}</span>
                         {activeBusiness?.id === b.id && <Check className="w-3.5 h-3.5 text-[#034bc0] shrink-0" />}
                       </div>
-                      <span className="text-[10px] text-slate-500 capitalize mt-0.5">
-                        {b.industry_id ? `${b.industry_id} • ` : (b.industry ? `${b.industry} • ` : '')}Score {b.health_score || 88}%
-                      </span>
+                      <div className="flex items-center gap-1.5 text-[10px] mt-1 flex-wrap">
+                        <span className="font-semibold text-blue-800 bg-blue-50/80 border border-blue-200/60 px-1.5 py-0.2 rounded-md">
+                          {formatIndustryLabel(b.industry_id || b.industry)}
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span className="font-semibold text-emerald-600">
+                          Score {b.health_score ? Math.round(Number(b.health_score)) : 88}%
+                        </span>
+                      </div>
                     </div>
 
                     {/* Quick Edit & Remove Action Icons */}
@@ -216,21 +251,26 @@ export const Header = ({ onOpenCommandPalette, onToggleMobileSidebar }) => {
                     setBizDropdownOpen(false);
                     navigate('/onboarding');
                   }}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-semibold text-[#034bc0] hover:bg-blue-50 rounded-xl transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-white bg-[#034bc0] hover:bg-[#023aa0] rounded-xl transition-all shadow-xs cursor-pointer group"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add New Location / Business</span>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300 group-hover:rotate-12 transition-transform" />
+                    <span>⚡ Add Location (AI Magic)</span>
+                  </div>
+                  <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-white/20 font-black">1-Click</span>
                 </button>
-                <button
-                  onClick={() => {
-                    setBizDropdownOpen(false);
-                    navigate('/admin?tab=locations');
-                  }}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-                >
-                  <Settings className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Manage All Locations in Super-Admin</span>
-                </button>
+                {isSuperAdminUser && (
+                  <button
+                    onClick={() => {
+                      setBizDropdownOpen(false);
+                      navigate('/admin?tab=locations');
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Manage All Locations in Super-Admin</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -238,27 +278,27 @@ export const Header = ({ onOpenCommandPalette, onToggleMobileSidebar }) => {
       </div>
 
       {/* Center Search / Command Launcher */}
-      <div className="hidden md:flex items-center flex-1 max-w-md mx-6">
+      <div className="hidden md:flex items-center flex-1 max-w-md mx-4 lg:mx-6">
         <button
           onClick={onOpenCommandPalette}
-          className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-800 border border-slate-200 transition-all text-xs group cursor-pointer"
+          className="w-full flex items-center justify-between px-3 py-1.5 h-8.5 rounded-lg bg-slate-50 hover:bg-white text-slate-500 hover:text-slate-800 border border-slate-200 hover:border-blue-400 hover:shadow-2xs transition-all text-xs group cursor-pointer"
         >
-          <div className="flex items-center gap-2.5">
-            <Search className="w-4 h-4 text-slate-400 group-hover:text-[#034bc0] transition-colors" />
-            <span>Search reviews, keywords, tasks...</span>
+          <div className="flex items-center gap-2">
+            <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#034bc0] transition-colors shrink-0" />
+            <span className="text-slate-500 group-hover:text-slate-700 text-xs truncate">Search reviews, keywords, tasks...</span>
           </div>
-          <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono text-slate-500 shadow-xs">
+          <kbd className="px-1.5 py-0.2 rounded bg-white border border-slate-200 text-[10px] font-mono text-slate-500 font-bold shadow-2xs group-hover:border-slate-300 shrink-0">
             ⌘K
           </kbd>
         </button>
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-1.5 sm:gap-3">
+      <div className="flex items-center gap-1 sm:gap-2">
         {/* Mobile Search Icon */}
         <button
           onClick={onOpenCommandPalette}
-          className="md:hidden p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+          className="md:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
           title="Search (⌘K)"
           aria-label="Search"
         >
@@ -267,16 +307,17 @@ export const Header = ({ onOpenCommandPalette, onToggleMobileSidebar }) => {
         {/* Quick AI Operations Button */}
         <button
           onClick={() => navigate('/ai-center')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#034bc0] border border-blue-200 text-xs font-semibold transition-all shadow-xs cursor-pointer"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 h-8.5 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-[#034bc0] border border-blue-200 text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-98 group"
         >
-          <Sparkles className="w-3.5 h-3.5 text-[#034bc0]" />
+          <Sparkles className="w-3.5 h-3.5 text-[#034bc0] group-hover:rotate-12 transition-transform" />
           <span className="hidden sm:inline">AI Operations</span>
+          <span className="hidden md:inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
         </button>
 
         {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
-          className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
           title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
         >
           {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4" />}
@@ -285,36 +326,36 @@ export const Header = ({ onOpenCommandPalette, onToggleMobileSidebar }) => {
         {/* Notifications Bell */}
         <button
           onClick={() => navigate('/notifications')}
-          className="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+          className="relative p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
           title="Notifications"
         >
           <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500"></span>
+          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500"></span>
         </button>
 
         {/* User Dropdown */}
         <div className="relative" ref={userDropdownRef}>
           <button
             onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-            className="flex items-center gap-2 pl-2 focus:outline-none cursor-pointer"
+            className="flex items-center gap-1.5 pl-1 focus:outline-none cursor-pointer group"
           >
-            <div className="w-8 h-8 rounded-full bg-[#034bc0] flex items-center justify-center font-bold text-white text-xs shadow-xs">
+            <div className="w-7 h-7 rounded-full bg-[#034bc0] flex items-center justify-center font-bold text-white text-xs shadow-xs group-hover:ring-2 group-hover:ring-blue-300 transition-all">
               {user?.fullName?.charAt(0) || 'D'}
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 hidden sm:block transition-transform duration-150 ${userDropdownOpen ? 'rotate-180 text-slate-700' : ''}`} />
           </button>
 
           {userDropdownOpen && (
             <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-1.5rem)] rounded-2xl bg-white border border-slate-200 shadow-xl p-2 z-50 text-slate-800 animate-in fade-in zoom-in-95 duration-100">
               <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                <p className="text-xs font-bold text-slate-900 truncate">{user?.fullName}</p>
-                <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
+                <p className="text-xs font-bold text-slate-900 truncate">{user?.fullName || 'Demo User'}</p>
+                <p className="text-[11px] text-slate-500 truncate">{user?.email || 'user@example.com'}</p>
                 <div className="mt-1.5 flex items-center gap-1.5">
                   <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-blue-100 text-[#034bc0] border border-blue-200">
-                    {user?.role}
+                    {user?.role || 'owner'}
                   </span>
-                  <span className="text-[9px] text-slate-500 capitalize">{user?.plan} Tier</span>
+                  <span className="text-[9px] text-slate-500 capitalize">{user?.plan || 'growth'} Tier</span>
                 </div>
               </div>
 
@@ -340,6 +381,19 @@ export const Header = ({ onOpenCommandPalette, onToggleMobileSidebar }) => {
                 <span>Subscription & Usage</span>
               </button>
 
+              {isSuperAdminUser && (
+                <button
+                  onClick={() => {
+                    setUserDropdownOpen(false);
+                    navigate('/admin');
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#034bc0] hover:bg-blue-50 rounded-xl transition-colors cursor-pointer"
+                >
+                  <Settings className="w-3.5 h-3.5 text-[#034bc0]" />
+                  <span>Super Admin Portal</span>
+                </button>
+              )}
+
               <div className="border-t border-slate-100 my-1"></div>
 
               <button
@@ -347,7 +401,7 @@ export const Header = ({ onOpenCommandPalette, onToggleMobileSidebar }) => {
                   setUserDropdownOpen(false);
                   logout();
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Sign Out</span>

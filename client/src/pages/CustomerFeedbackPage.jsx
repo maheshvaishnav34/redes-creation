@@ -8,7 +8,6 @@ import {
   Globe,
   Sparkles,
   MapPin,
-  Tag,
   RotateCw,
   Check,
   MessageSquare,
@@ -19,6 +18,7 @@ import {
 import { api } from '../services/api.js';
 import { validateGoogleReviewUrl } from '../utils/googleUrlValidator.js';
 import { ReviewGuideBottomSheet } from '../components/feedback/ReviewGuideBottomSheet.jsx';
+
 
 export const CustomerFeedbackPage = () => {
   const { slug } = useParams();
@@ -34,6 +34,7 @@ export const CustomerFeedbackPage = () => {
   const [customerName, setCustomerName] = useState('');
   const [reviewText, setReviewText] = useState('');
   const [selectedChips, setSelectedChips] = useState([]);
+  const [selectedKeywords, setSelectedKeywords] = useState([]);
   const [aiVariationSeed, setAiVariationSeed] = useState(0);
   const [hasGeneratedAi, setHasGeneratedAi] = useState(false);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
@@ -88,7 +89,7 @@ export const CustomerFeedbackPage = () => {
           api.trackCampaignEvent(camp.id, 'LANDING_PAGE_VIEWED', {
             path: window.location.pathname,
             referrer: document.referrer || 'direct_or_qr'
-          }).catch(() => {});
+          }).catch(() => { });
         }
       } catch (err) {
         console.error('[FEEDBACK] Error loading campaign details:', err);
@@ -100,13 +101,12 @@ export const CustomerFeedbackPage = () => {
   }, [slug]);
 
   // Derive dynamic business metadata per location
-  const isBhagyalaxmiEnv = import.meta.env.VITE_BUSINESS_NAME && import.meta.env.VITE_BUSINESS_NAME.toLowerCase().includes('bhagyalaxmi');
-  const defaultBusinessName = isBhagyalaxmiEnv ? import.meta.env.VITE_BUSINESS_NAME : 'Business Location';
+  const defaultBusinessName = 'Business Location';
 
   const businessName = campaign?.business_name || defaultBusinessName;
   const businessCity = campaign?.city || '';
-  const businessAddress = campaign?.address 
-    ? `${campaign.address}${businessCity ? ', ' + businessCity : ''}` 
+  const businessAddress = campaign?.address
+    ? `${campaign.address}${businessCity ? ', ' + businessCity : ''}`
     : (businessCity ? `${businessCity}, India` : '');
   const rawWebsite = campaign?.website || campaign?.business_website || '';
   const businessWebsite = rawWebsite ? (rawWebsite.startsWith('http') ? rawWebsite : `https://${rawWebsite}`) : '';
@@ -174,17 +174,23 @@ export const CustomerFeedbackPage = () => {
     return ['Quality Service', 'Clear Communication', 'Professional Team', 'Timely Delivery', 'Fair Pricing'];
   }, [isHospitality, isDental, isTechOrTraining]);
 
-  // Dynamic Natural AI Generator Function — branches by business type
-  const generateFreshAiReview = (currentRating, service, chips, seed) => {
-    const defaultService = isDental 
-      ? 'our dental treatment' 
+  // Dynamic Natural AI Generator Function — branches by business type & integrates 7-day keywords
+  const generateFreshAiReview = (currentRating, service, chips, seed, keywords = []) => {
+    const activeKwList = (keywords && keywords.length > 0)
+      ? keywords
+      : (selectedKeywords.length > 0 ? selectedKeywords : (campaign?.trending_keywords || []));
+    const trendingKw = activeKwList.length > 0
+      ? activeKwList[seed % activeKwList.length]
+      : null;
+    const defaultService = isDental
+      ? 'our dental treatment'
       : (isTechOrTraining ? 'our training program' : 'our experience');
-    const sName = service || defaultService;
+    const sName = service || trendingKw || defaultService;
     const bName = businessName;
     const themesStr = chips.length > 0 ? chips.join(', ') : '';
 
     if (currentRating >= 4) {
-      if (isTechOrTraining && seed === 0 && chips.length === 0) {
+      if (isTechOrTraining && seed === 0 && chips.length === 0 && (!keywords || keywords.length === 0)) {
         return 'The training experience was helpful. The sessions and practical learning supported my understanding. Thank you to the team.';
       }
 
@@ -224,8 +230,8 @@ export const CustomerFeedbackPage = () => {
         `Really glad we chose ${bName} for ${sName}.`
       ];
 
-      const highOpeners = isTechOrTraining 
-        ? techHighOpeners 
+      const highOpeners = isTechOrTraining
+        ? techHighOpeners
         : (isDental ? dentalHighOpeners : hospHighOpeners);
 
       // ── Bodies with themes (shared, theme-driven) ──
@@ -236,9 +242,9 @@ export const CustomerFeedbackPage = () => {
         `Prompt coordination and high-standard ${themesStr.toLowerCase()}. They deliver genuine care and quality at every step.`,
         isDental
           ? `From reception to treatment, their ${themesStr.toLowerCase()} was truly remarkable.`
-          : (isTechOrTraining 
-              ? `From course onboarding to live projects, their ${themesStr.toLowerCase()} was truly remarkable.`
-              : `From check-in to dining, their ${themesStr.toLowerCase()} was truly remarkable.`)
+          : (isTechOrTraining
+            ? `From course onboarding to live projects, their ${themesStr.toLowerCase()} was truly remarkable.`
+            : `From check-in to dining, their ${themesStr.toLowerCase()} was truly remarkable.`)
       ];
 
       // ── Bodies without themes ──
@@ -288,41 +294,41 @@ export const CustomerFeedbackPage = () => {
 
       const highClosers = isDental ? dentalHighClosers : hospHighClosers;
 
-      const opIdx = (seed * 3) % highOpeners.length;
-      const bdIdx = chips.length > 0
-        ? (seed * 2 + 1) % highBodiesWithThemes.length
-        : (seed * 2 + 1) % highBodiesWithoutThemes.length;
-      const clIdx = (seed * 5 + 2) % highClosers.length;
+      const kwPhrase = activeKwList && activeKwList.length > 0
+        ? `Their specialized focus on ${activeKwList.slice(0, 2).join(' & ')} was truly outstanding.`
+        : '';
+      const baseBody = chips.length > 0 ? highBodiesWithThemes[bdIdx] : highBodiesWithoutThemes[bdIdx];
+      const combinedBody = kwPhrase ? `${kwPhrase} ${baseBody}` : baseBody;
 
-      return `${highOpeners[opIdx]} ${chips.length > 0 ? highBodiesWithThemes[bdIdx] : highBodiesWithoutThemes[bdIdx]} ${highClosers[clIdx]}`;
+      return `${highOpeners[opIdx]} ${combinedBody} ${highClosers[clIdx]}`;
     } else {
       const lowOpeners = isDental
         ? [
-            `Sharing feedback regarding our recent dental experience at ${bName}.`,
-            `Providing direct feedback for the management at ${bName}.`,
-            `Wanted to highlight a few areas for improvement with ${sName} at ${bName}.`,
-            `Writing to share our experience directly with the clinic management.`
-          ]
+          `Sharing feedback regarding our recent dental experience at ${bName}.`,
+          `Providing direct feedback for the management at ${bName}.`,
+          `Wanted to highlight a few areas for improvement with ${sName} at ${bName}.`,
+          `Writing to share our experience directly with the clinic management.`
+        ]
         : [
-            `Sharing constructive feedback regarding our recent experience with ${sName} at ${bName}.`,
-            `Providing direct feedback for management regarding our visit.`,
-            `Wanted to highlight a few areas for improvement concerning ${sName} at ${bName}.`,
-            `Writing to share our experience directly with the management.`
-          ];
+          `Sharing constructive feedback regarding our recent experience with ${sName} at ${bName}.`,
+          `Providing direct feedback for management regarding our visit.`,
+          `Wanted to highlight a few areas for improvement concerning ${sName} at ${bName}.`,
+          `Writing to share our experience directly with the management.`
+        ];
 
       const lowBodies = chips.length > 0
         ? [
-            `While certain aspects were good, specific points regarding ${themesStr.toLowerCase()} did not meet our expectations.`,
-            `We encountered issues particularly around ${themesStr.toLowerCase()}, which caused inconvenience.`,
-            `There is noticeable room for improvement in ${themesStr.toLowerCase()} and overall coordination.`
-          ]
+          `While certain aspects were good, specific points regarding ${themesStr.toLowerCase()} did not meet our expectations.`,
+          `We encountered issues particularly around ${themesStr.toLowerCase()}, which caused inconvenience.`,
+          `There is noticeable room for improvement in ${themesStr.toLowerCase()} and overall coordination.`
+        ]
         : isDental
-        ? [
+          ? [
             `The waiting time and communication could be improved significantly.`,
             `There were some coordination difficulties during our appointment.`,
             `The experience did not fully meet our expectations for a dental visit.`
           ]
-        : [
+          : [
             `The service speed and coordination were below what was expected.`,
             `There were service delays and communication difficulties during our visit.`,
             `The experience did not meet standard expectations.`
@@ -372,7 +378,7 @@ export const CustomerFeedbackPage = () => {
           authorName: customerName.trim() || undefined
         }
       }, '*');
-    } catch {}
+    } catch { }
 
     // 2. Persist to localStorage for cross-page extension pickup & fallback
     try {
@@ -383,17 +389,30 @@ export const CustomerFeedbackPage = () => {
         customerName: customerName.trim() || undefined,
         updatedAt: Date.now()
       }));
-    } catch {}
+    } catch { }
   };
+
+  // Auto-select initial top trending keyword from 7-day cycle
+  useEffect(() => {
+    if (campaign?.trending_keywords?.length > 0 && selectedKeywords.length === 0) {
+      const topKw = campaign.trending_keywords[0];
+      setSelectedKeywords([topKw]);
+      if (!hasGeneratedAi) {
+        const fresh = generateFreshAiReview(rating, selectedService, selectedChips, 0, [topKw]);
+        setReviewText(fresh);
+        syncDraftToExtension(fresh, rating);
+      }
+    }
+  }, [campaign?.trending_keywords]);
 
   // Initialize review text
   useEffect(() => {
     if (!hasGeneratedAi && reviewText === '') {
-      const initialText = generateFreshAiReview(rating, selectedService, selectedChips, 0);
+      const initialText = generateFreshAiReview(rating, selectedService, selectedChips, 0, selectedKeywords);
       setReviewText(initialText);
       syncDraftToExtension(initialText, rating);
     }
-  }, [rating, selectedService, selectedChips, hasGeneratedAi]);
+  }, [rating, selectedService, selectedChips, hasGeneratedAi, selectedKeywords]);
 
   // Handler: Generate fresh AI Review
   const handleGenerateAiReview = () => {
@@ -403,11 +422,24 @@ export const CustomerFeedbackPage = () => {
     setHasGeneratedAi(true);
 
     setTimeout(() => {
-      const freshText = generateFreshAiReview(rating, selectedService, selectedChips, nextSeed);
+      const freshText = generateFreshAiReview(rating, selectedService, selectedChips, nextSeed, selectedKeywords);
       setReviewText(freshText);
       syncDraftToExtension(freshText, rating);
       setIsGeneratingAi(false);
     }, 220);
+  };
+
+  // Toggle 7-Day Trending Keyword chip
+  const toggleKeyword = (kw) => {
+    const isSelected = selectedKeywords.includes(kw);
+    const newKws = isSelected ? selectedKeywords.filter(k => k !== kw) : [...selectedKeywords, kw];
+    setSelectedKeywords(newKws);
+
+    const nextSeed = aiVariationSeed + 1;
+    setAiVariationSeed(nextSeed);
+    const updated = generateFreshAiReview(rating, selectedService, selectedChips, nextSeed, newKws);
+    setReviewText(updated);
+    syncDraftToExtension(updated, rating);
   };
 
   // Toggle highlight theme chip
@@ -418,7 +450,7 @@ export const CustomerFeedbackPage = () => {
 
     const nextSeed = aiVariationSeed + 1;
     setAiVariationSeed(nextSeed);
-    const updated = generateFreshAiReview(rating, selectedService, newChips, nextSeed);
+    const updated = generateFreshAiReview(rating, selectedService, newChips, nextSeed, selectedKeywords);
     setReviewText(updated);
     syncDraftToExtension(updated, rating);
   };
@@ -444,7 +476,7 @@ export const CustomerFeedbackPage = () => {
         await navigator.clipboard.writeText(text);
         success = true;
       }
-    } catch {}
+    } catch { }
     if (!success) {
       try {
         const ta = document.createElement('textarea');
@@ -456,7 +488,7 @@ export const CustomerFeedbackPage = () => {
         ta.select();
         success = document.execCommand('copy');
         document.body.removeChild(ta);
-      } catch {}
+      } catch { }
     }
     return success;
   };
@@ -542,7 +574,7 @@ export const CustomerFeedbackPage = () => {
         destination: rating >= 4 ? 'google_reviews' : 'private_feedback',
         targetUrl: rating >= 4 ? targetUrl : null,
         businessId: campaign?.business_id
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     try {
@@ -606,7 +638,7 @@ export const CustomerFeedbackPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-sky-50/20 to-slate-100 text-slate-900 flex flex-col items-center justify-center p-3 sm:p-6 font-sans">
-      
+
       {/* Toast Notification */}
       {copySuccessToast && (
         <div className="fixed top-5 z-50 animate-in slide-in-from-top duration-200">
@@ -617,8 +649,9 @@ export const CustomerFeedbackPage = () => {
         </div>
       )}
 
-      <div className="w-full max-w-xl rounded-3xl bg-white border border-slate-100 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.06)] p-6 sm:p-8 space-y-6 animate-in fade-in duration-200">
-        
+      <div className="w-full max-w-xl rounded-3xl bg-white border border-slate-100 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.06)] p-5 sm:p-7 space-y-5 animate-in fade-in duration-200">
+
+
         {/* Header: Business Branding (Left-Aligned per screenshot) */}
         <div className="space-y-3">
           <div className="flex items-start gap-3.5">
@@ -695,13 +728,13 @@ export const CustomerFeedbackPage = () => {
         ) : (
           /* Main Interactive Feedback Form */
           <div className="space-y-5">
-            
+
             {/* Interactive Star Rating Box */}
             <div className="text-center py-4 sm:py-5 px-6 rounded-2xl border border-blue-100/90 bg-blue-50/20 space-y-2">
               <h2 className="text-sm sm:text-base font-bold text-slate-900">
                 How was your experience?
               </h2>
-              
+
               <div className="flex items-center justify-center gap-3 sm:gap-4 pt-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
@@ -714,11 +747,10 @@ export const CustomerFeedbackPage = () => {
                     aria-label={`Rate ${star} star`}
                   >
                     <Star
-                      className={`w-9 h-9 sm:w-11 sm:h-11 transition-colors ${
-                        (hoverRating || rating) >= star
+                      className={`w-9 h-9 sm:w-11 sm:h-11 transition-colors ${(hoverRating || rating) >= star
                           ? 'fill-amber-400 text-amber-400 drop-shadow-xs'
                           : 'text-slate-200'
-                      }`}
+                        }`}
                     />
                   </button>
                 ))}
@@ -760,11 +792,10 @@ export const CustomerFeedbackPage = () => {
                           setReviewText(fresh);
                           syncDraftToExtension(fresh, rating);
                         }}
-                        className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
-                          isSelected
+                        className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${isSelected
                             ? 'bg-blue-50 text-blue-700 border border-blue-300 ring-1 ring-blue-500/20'
                             : 'bg-blue-50/40 hover:bg-blue-50 text-slate-600 border border-slate-200'
-                        }`}
+                          }`}
                       >
                         {svc}
                       </button>
@@ -787,11 +818,10 @@ export const CustomerFeedbackPage = () => {
                       key={chip}
                       type="button"
                       onClick={() => toggleChip(chip)}
-                      className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
-                        isSelected
+                      className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${isSelected
                           ? 'bg-blue-50 text-blue-700 border border-blue-300 ring-1 ring-blue-500/20'
                           : 'bg-blue-50/40 hover:bg-blue-50 text-slate-600 border border-slate-200'
-                      }`}
+                        }`}
                     >
                       {chip}
                     </button>
@@ -799,6 +829,42 @@ export const CustomerFeedbackPage = () => {
                 })}
               </div>
             </div>
+
+            {/* 7-Day Top Trending Keywords (Tap to Add) */}
+            {(campaign?.trending_keywords?.length > 0 || campaign?.weekly_cycle_info?.topKeywords?.length > 0) && (
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <Flame className="w-4 h-4 text-amber-500" />
+                    <span>7-Day Top Trending Keywords:</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                    <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
+                    <span>Google 3-Pack Boost</span>
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(campaign?.trending_keywords || campaign?.weekly_cycle_info?.topKeywords || []).map((kw) => {
+                    const isSelected = selectedKeywords.includes(kw);
+                    return (
+                      <button
+                        key={kw}
+                        type="button"
+                        onClick={() => toggleKeyword(kw)}
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${isSelected
+                            ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-300 transform scale-102'
+                            : 'bg-amber-50/70 hover:bg-amber-100/80 text-amber-900 border border-amber-200/90'
+                          }`}
+                      >
+                        <Flame className={`w-3 h-3 ${isSelected ? 'text-amber-100' : 'text-amber-500'}`} />
+                        <span>{kw}</span>
+                        {isSelected && <Check className="w-3 h-3 text-white ml-0.5" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Your Review Draft Box with Inline "Write with AI" Button */}
             <div className="space-y-2">
@@ -820,8 +886,17 @@ export const CustomerFeedbackPage = () => {
                   placeholder="The training experience was helpful. The sessions and practical learning supported my understanding..."
                 />
 
-                {/* Inline "Write with AI" Pill Button */}
-                <div className="flex justify-end pt-1">
+                {/* Inline "Write with AI" Pill Button & Google SEO Indicator */}
+                <div className="flex items-center justify-between pt-1">
+                  {rating >= 4 ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span>Google 3-Pack SEO Optimized</span>
+                    </span>
+                  ) : (
+                    <span></span>
+                  )}
+
                   <button
                     type="button"
                     onClick={handleGenerateAiReview}

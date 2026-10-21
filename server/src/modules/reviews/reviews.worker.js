@@ -255,6 +255,32 @@ class ReviewAnalysisWorker {
         ]
       );
 
+      // 5b. Unified Flywheel Pipeline: Convert negative reviews / complaints into actionable tasks
+      if (review.rating <= 2 || analysis.issueDetected) {
+        try {
+          const bizRes = await query(`SELECT workspace_id FROM business_locations WHERE id = $1`, [review.business_id]);
+          const wId = bizRes.rows[0]?.workspace_id;
+          if (wId) {
+            const issueTitle = `Review Alert: Address issue reported by ${review.author_name || 'Customer'}`;
+            const issueDesc = analysis.complaints?.[0] || analysis.reviewFeedback || analysis.summary || 'Customer expressed dissatisfaction with service.';
+            await query(
+              `INSERT INTO tasks (workspace_id, business_id, title, description, source, priority, status, created_at, updated_at)
+               VALUES ($1, $2, $3, $4, 'review_complaint', $5, 'todo', NOW(), NOW())
+               ON CONFLICT DO NOTHING`,
+              [
+                wId,
+                review.business_id,
+                issueTitle,
+                `${issueDesc} (Rating: ${review.rating}★). Immediate follow-up or operational adjustment advised.`,
+                review.rating <= 1 ? 'critical' : 'high'
+              ]
+            );
+          }
+        } catch (taskErr) {
+          console.warn('[REVIEW_WORKER] Task auto-generation notice:', taskErr.message);
+        }
+      }
+
       // 6. Section 14: If responseRequired is true and response_suggestion is available,
       // create/update response draft in review_responses if not already replied
       if (analysis.responseRequired && analysis.responseSuggestion) {

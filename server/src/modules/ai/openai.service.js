@@ -17,16 +17,38 @@ import { query } from '../../config/db.js';
 import { getBusinessIntelligenceProfile, getActivePrompt, compileTemplate } from './promptRegistry.js';
 
 export class OpenAIService {
-  constructor() {
-    this.apiUrl = process.env.GROK_API_URL || 'https://api.x.ai/v1/chat/completions';
-  }
-
-  get apiKey() {
+  get rawGrokKey() {
     return (process.env.GROK_API_KEY || process.env.XAI_API_KEY || process.env.OPENAI_API_KEY || '').trim();
   }
 
+  get hasDedicatedGrok() {
+    return this.rawGrokKey.length > 5 && !this.rawGrokKey.includes('your_grok_api_key_here');
+  }
+
+  get groqKey() {
+    return (process.env.GROQ_API_KEY || '').trim();
+  }
+
+  get hasGroq() {
+    return this.groqKey.length > 5 && !this.groqKey.startsWith('gsk_mock');
+  }
+
+  get apiKey() {
+    return this.hasDedicatedGrok ? this.rawGrokKey : (this.hasGroq ? this.groqKey : '');
+  }
+
+  get apiUrl() {
+    if (this.hasDedicatedGrok) {
+      return process.env.GROK_API_URL || 'https://api.x.ai/v1/chat/completions';
+    }
+    return 'https://api.groq.com/openai/v1/chat/completions';
+  }
+
   get defaultModel() {
-    return process.env.GROK_MODEL || process.env.OPENAI_MODEL || 'grok-2-latest';
+    if (this.hasDedicatedGrok) {
+      return process.env.GROK_MODEL || process.env.OPENAI_MODEL || 'grok-2-latest';
+    }
+    return process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
   }
 
   /**
