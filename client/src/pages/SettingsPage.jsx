@@ -443,61 +443,64 @@ export default function SettingsPage() {
           {isClient ? (
             /* ONLY Client Details */
             <div className="space-y-6">
-              {/* Top Identity Hero Card (Pixel-perfect match to screenshot) */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
-                <div className="flex items-start gap-4 sm:gap-5">
-                  {/* Soft Light Blue Rounded Squircle Avatar */}
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-[#dbeafe] dark:bg-blue-950/60 text-slate-900 dark:text-blue-100 flex items-center justify-center font-black text-2xl sm:text-3xl shrink-0 shadow-2xs">
-                    {user?.fullName?.charAt(0)?.toUpperCase() || 'M'}
-                  </div>
+              {/* Top Identity Hero Card (Responsive: Side-by-side on desktop, stacked on mobile) */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  {/* Left: Avatar & User Metadata */}
+                  <div className="flex items-start sm:items-center gap-4 sm:gap-5 min-w-0">
+                    {/* Soft Light Blue Rounded Squircle Avatar */}
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-[#dbeafe] dark:bg-blue-950/60 text-slate-900 dark:text-blue-100 flex items-center justify-center font-black text-2xl sm:text-3xl shrink-0 shadow-2xs">
+                      {user?.fullName?.charAt(0)?.toUpperCase() || 'M'}
+                    </div>
 
-                  {/* User Details */}
-                  <div className="flex-1 min-w-0 space-y-1 sm:space-y-1.5">
-                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
-                      {user?.fullName || 'Mahesh Vaishnav'}
-                    </h2>
+                    {/* User Details */}
+                    <div className="flex-1 min-w-0 space-y-1 sm:space-y-1.5">
+                      <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+                        {user?.fullName || 'Mahesh Vaishnav'}
+                      </h2>
 
-                    {/* VERIFIED CLIENT Pill Badge */}
-                    <div>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#dcfce7] text-[#166534] border border-[#bbf7d0] text-[11px] font-black uppercase tracking-wider">
-                        <span className="w-3.5 h-3.5 rounded-full bg-[#16a34a] flex items-center justify-center text-white shrink-0">
-                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      {/* VERIFIED CLIENT Pill Badge */}
+                      <div>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#dcfce7] text-[#166534] border border-[#bbf7d0] text-[11px] font-black uppercase tracking-wider">
+                          <span className="w-3.5 h-3.5 rounded-full bg-[#16a34a] flex items-center justify-center text-white shrink-0">
+                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                          </span>
+                          <span>VERIFIED CLIENT</span>
                         </span>
-                        <span>VERIFIED CLIENT</span>
-                      </span>
-                    </div>
+                      </div>
 
-                    {/* Email */}
-                    <div className="pt-0.5 flex items-center gap-2 text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-semibold truncate">
-                      <Mail className="w-4 h-4 text-slate-700 dark:text-slate-300 shrink-0" />
-                      <span className="truncate">{user?.email || 'maheshvaishnav78499@gmail.com'}</span>
-                    </div>
+                      {/* Email */}
+                      <div className="pt-0.5 flex items-center gap-2 text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-semibold truncate">
+                        <Mail className="w-4 h-4 text-slate-700 dark:text-slate-300 shrink-0" />
+                        <span className="truncate">{user?.email || 'maheshvaishnav78499@gmail.com'}</span>
+                      </div>
 
-                    {/* Business Location */}
-                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-medium truncate">
-                      <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
-                      <span className="truncate">{workspace.name || activeBusiness?.name || 'Bhagyalaxmi Hotel & Resort'}</span>
+                      {/* Business Location */}
+                      <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-medium truncate">
+                        <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+                        <span className="truncate">{workspace.name || activeBusiness?.name || 'Bhagyalaxmi Hotel & Resort'}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Bottom Action Buttons */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                  <button
-                    onClick={() => handleOpenEditUser(currentUserMember || { id: user?.id, full_name: user?.fullName, email: user?.email, role: 'client' })}
-                    className="w-full py-3 px-4 rounded-xl sm:rounded-2xl bg-[#034bc0] hover:bg-[#023aa0] text-white font-bold text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                  >
-                    <Edit3 className="w-4 h-4 text-white" />
-                    <span>Edit Name &amp; Email</span>
-                  </button>
+                  {/* Right: Action Buttons (Natural size on desktop, full-width on mobile) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:flex md:items-center gap-3 shrink-0 pt-2 md:pt-0">
+                    <button
+                      onClick={() => handleOpenEditUser(currentUserMember || { id: user?.id, full_name: user?.fullName, email: user?.email, role: 'client' })}
+                      className="w-full md:w-auto py-3 px-5 rounded-xl sm:rounded-2xl bg-[#034bc0] hover:bg-[#023aa0] text-white font-bold text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-98 whitespace-nowrap"
+                    >
+                      <Edit3 className="w-4 h-4 text-white" />
+                      <span>Edit Name &amp; Email</span>
+                    </button>
 
-                  <button
-                    onClick={() => handleOpenResetPwd(currentUserMember || { id: user?.id, full_name: user?.fullName, email: user?.email, role: 'client' })}
-                    className="w-full py-3 px-4 rounded-xl sm:rounded-2xl bg-[#eff6ff] hover:bg-blue-100/70 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 border border-[#2563eb] text-[#034bc0] dark:text-blue-300 font-bold text-xs sm:text-sm transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                  >
-                    <Key className="w-4 h-4 text-[#034bc0] dark:text-blue-300" />
-                    <span>Change Password</span>
-                  </button>
+                    <button
+                      onClick={() => handleOpenResetPwd(currentUserMember || { id: user?.id, full_name: user?.fullName, email: user?.email, role: 'client' })}
+                      className="w-full md:w-auto py-3 px-5 rounded-xl sm:rounded-2xl bg-[#eff6ff] hover:bg-blue-100/70 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 border border-[#2563eb] text-[#034bc0] dark:text-blue-300 font-bold text-xs sm:text-sm transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer active:scale-98 whitespace-nowrap"
+                    >
+                      <Key className="w-4 h-4 text-[#034bc0] dark:text-blue-300" />
+                      <span>Change Password</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
