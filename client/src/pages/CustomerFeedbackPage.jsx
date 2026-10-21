@@ -490,6 +490,75 @@ export const CustomerFeedbackPage = () => {
     syncDraftToExtension(freshText, star);
   };
 
+  // Target phone number normalized for WhatsApp direct messaging
+  const getWhatsAppTargetNumber = () => {
+    const raw = campaign?.business_phone || campaign?.phone || '';
+    const digits = raw.replace(/[^0-9]/g, '');
+    if (!digits) return '919876543210';
+    if (digits.length === 10) return `91${digits}`;
+    return digits;
+  };
+
+  // Formatted polite customer grievance message for direct WhatsApp resolution
+  const buildWhatsAppMessage = (text) => {
+    const activeText = (text || reviewText || '').trim() || 'Sharing constructive feedback regarding our visit.';
+    const cName = customerName.trim() || 'Valued Guest';
+    return (
+      `*Private Feedback for ${businessName}*\n` +
+      `⭐ Rating: ${rating}/5 Stars\n` +
+      `👤 Guest Name: ${cName}\n\n` +
+      `💬 *Feedback Message:*\n"${activeText}"\n\n` +
+      `_Sent directly via Redes Review Portal_`
+    );
+  };
+
+  // Direct WhatsApp feedback handler for 1-3 star reviews
+  const handleWhatsAppFeedback = async (e) => {
+    if (e) e.preventDefault();
+    setPosting(true);
+    const activeText = reviewText.trim() || 'Sharing constructive feedback regarding our visit.';
+
+    // 1. Concurrently log in Redes database for analytics & private records
+    try {
+      if (campaign?.id || slug) {
+        api.trackCampaignEvent(campaign?.id || slug || 'default', 'REVIEW_DESTINATION_CLICKED', {
+          rating,
+          destination: 'whatsapp_private',
+          targetUrl: 'whatsapp',
+          businessId: campaign?.business_id
+        }).catch(() => { });
+      }
+
+      await api.submitFeedback({
+        campaignId: campaign?.id || slug,
+        businessId: campaign?.business_id || campaign?.businessId,
+        customerName: customerName.trim() || 'Valued Guest',
+        rating,
+        feedbackText: activeText,
+        themesSelected: selectedChips,
+        proceededToGoogle: false
+      });
+      setReviewAdded(true);
+    } catch (err) {
+      console.warn('[FEEDBACK] Sync notice:', err);
+    } finally {
+      setPosting(false);
+    }
+
+    // 2. Open WhatsApp directly with pre-filled message
+    const waNumber = getWhatsAppTargetNumber();
+    const message = buildWhatsAppMessage(activeText);
+    const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(message)}`;
+
+    try {
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+    } catch {
+      window.location.href = waUrl;
+    }
+
+    setCompleted(true);
+  };
+
   // Record click in campaign analytics & redirect customer to Google Review Page
   const triggerGoogleRedirect = (targetUrl) => {
     const rawUrl = targetUrl || getGoogleReviewUrl();
@@ -693,21 +762,33 @@ export const CustomerFeedbackPage = () => {
               <HeartHandshake className="w-6 h-6" />
             </div>
             <h3 className="font-bold text-emerald-900 text-base">
-              Thank You for Your Feedback!
+              Thank You for Reaching Out!
             </h3>
             <p className="text-xs text-emerald-800 leading-relaxed max-w-sm mx-auto">
-              Your feedback has been privately sent directly to the management of <strong>{businessName}</strong>. We value your voice and are committed to continuous improvement.
+              Your feedback has been privately forwarded to the management of <strong>{businessName}</strong>. We are committed to making things right.
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                setCompleted(false);
-                setRating(5);
-              }}
-              className="mt-2 text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
-            >
-              Submit Another Response
-            </button>
+            <div className="pt-2 flex flex-col items-center gap-2 max-w-xs mx-auto">
+              <button
+                type="button"
+                onClick={handleWhatsAppFeedback}
+                className="w-full py-2.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-98"
+              >
+                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                </svg>
+                <span>Chat on WhatsApp</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCompleted(false);
+                  setRating(5);
+                }}
+                className="text-xs font-medium text-slate-500 hover:text-slate-800 cursor-pointer pt-1"
+              >
+                Submit Another Response
+              </button>
+            </div>
           </div>
         ) : (
           /* Main Interactive Feedback Form */
@@ -910,15 +991,48 @@ export const CustomerFeedbackPage = () => {
                   )}
                 </button>
               ) : (
-                <button
-                  type="button"
-                  disabled={posting}
-                  onClick={handlePostReview}
-                  className="w-full py-3.5 sm:py-4 px-6 rounded-2xl bg-slate-900 hover:bg-black text-white font-bold text-sm sm:text-base transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98"
-                >
-                  <MessageSquare className="w-4 h-4 text-amber-400" />
-                  <span>Send Private Feedback to Management</span>
-                </button>
+                <div className="space-y-3 pt-1 animate-in fade-in">
+                  {/* WhatsApp Direct Messaging Banner */}
+                  <div className="p-3.5 rounded-2xl bg-emerald-50/90 border border-emerald-200/90 flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-[#25D366] text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                      <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                      </svg>
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                      <h4 className="text-xs font-bold text-emerald-950">
+                        Direct 1-on-1 WhatsApp Resolution
+                      </h4>
+                      <p className="text-[11px] text-emerald-800 mt-0.5 leading-relaxed">
+                        Tap below to send this feedback directly to the management of <strong>{businessName}</strong> on WhatsApp for instant support.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Primary WhatsApp Action Button */}
+                  <button
+                    type="button"
+                    disabled={posting}
+                    onClick={handleWhatsAppFeedback}
+                    className="w-full py-3.5 sm:py-4 px-6 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-sm sm:text-base shadow-lg shadow-emerald-500/25 transition-all cursor-pointer flex items-center justify-center gap-2.5 hover:scale-[1.005] active:scale-98"
+                  >
+                    <svg className="w-5 h-5 fill-current shrink-0" viewBox="0 0 24 24">
+                      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                    </svg>
+                    <span>{posting ? 'Connecting...' : 'Chat with Management on WhatsApp'}</span>
+                  </button>
+
+                  {/* Secondary Web Submission Button */}
+                  <button
+                    type="button"
+                    disabled={posting}
+                    onClick={handlePostReview}
+                    className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Or Send Privately via Web Form</span>
+                  </button>
+                </div>
               )}
 
               {completed && rating >= 4 && (
