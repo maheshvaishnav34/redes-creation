@@ -643,16 +643,14 @@ export const getPublicCampaignDetails = async (req, res, next) => {
     const lowerName = `${campaign.business_name || ''} ${campaign.name || ''}`.toLowerCase();
     const isTechOrTraining = lowerName.includes('training') || lowerName.includes('code') || lowerName.includes('software') || lowerName.includes('tech') || lowerName.includes('dev') || lowerName.includes('institute') || lowerName.includes('academy');
     const isDental = lowerName.includes('dental') || lowerName.includes('teeth') || lowerName.includes('clinic');
-    const isDining = lowerName.includes('dine') || lowerName.includes('restaurant') || lowerName.includes('bistro') || lowerName.includes('cafe');
+    const isDining = lowerName.includes('dine') || lowerName.includes('restaurant') || lowerName.includes('bistro') || lowerName.includes('cafe') || lowerName.includes('hotel') || lowerName.includes('resort');
 
     if (isTechOrTraining && (!finalServices.length || finalServices.some(s => typeof s === 'string' && (s.toLowerCase().includes('dining') || s.toLowerCase().includes('banquet'))))) {
       finalServices = ['Full Stack Web Development', 'Python Programming', 'MERN Stack Development', 'Software Testing', 'React & Node.js', 'IT Career Placement'];
     } else if (isDental && (!finalServices.length || finalServices.some(s => typeof s === 'string' && s.toLowerCase().includes('dining')))) {
       finalServices = ['Dental Consultation', 'Teeth Whitening', 'Root Canal Treatment', 'Dental Implants', 'Orthodontic Aligners'];
-    } else if (!isDining && finalServices.some(s => typeof s === 'string' && s.toLowerCase().includes('dining'))) {
-      finalServices = ['Website Development', 'Google Review Optimization', 'Digital Marketing', 'SEO Growth Services', 'Technical Consulting'];
     } else if (!finalServices || finalServices.length === 0) {
-      finalServices = ['Professional Consultation', 'Service Delivery & Execution', 'Quality Assurance & Support', 'Customer Service'];
+      finalServices = [];
     }
 
     campaign.services = finalServices;

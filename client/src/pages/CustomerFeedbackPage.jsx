@@ -31,7 +31,6 @@ export const CustomerFeedbackPage = () => {
   // Core Form State
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
-  const [selectedService, setSelectedService] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [reviewText, setReviewText] = useState('');
   const [selectedChips, setSelectedChips] = useState([]);
@@ -118,49 +117,6 @@ export const CustomerFeedbackPage = () => {
   const isDental = lowerBiz.includes('dental') || lowerBiz.includes('clinic') || lowerBiz.includes('teeth') || lowerBiz.includes('implant');
   const isHospitality = lowerBiz.includes('hotel') || lowerBiz.includes('resort') || lowerBiz.includes('dine') || lowerBiz.includes('restaurant') || lowerBiz.includes('cafe') || lowerBiz.includes('bistro') || lowerBiz.includes('food');
 
-  // Dynamic campaign services
-  const campaignServices = useMemo(() => {
-    if (campaign?.services) {
-      if (Array.isArray(campaign.services) && campaign.services.length > 0) return campaign.services;
-      try {
-        const parsed = JSON.parse(campaign.services);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {
-        const parts = campaign.services.split(',').map(s => s.trim()).filter(Boolean);
-        if (parts.length > 0) return parts;
-      }
-    }
-    if (isTechOrTraining) {
-      return [
-        'Full Stack Web Development',
-        'Python Programming',
-        'MERN Stack Development',
-        'Software Testing',
-        'IT Career Placement'
-      ];
-    }
-    if (isDental) {
-      return ['Dental Consultation', 'Teeth Whitening', 'Root Canal Treatment', 'Dental Implants', 'Orthodontic Aligners'];
-    }
-    if (isHospitality) {
-      return [
-        'Hotel Accommodation & Rooms',
-        'A La Carte Restaurant & Dining',
-        'Banquet Lawns & Celebrations',
-        'Family Dinners & Buffet',
-        'Room Service & Hospitality'
-      ];
-    }
-    return ['Professional Consultation', 'Service Delivery', 'Quality Assurance', 'Customer Support'];
-  }, [campaign?.services, isDental, isHospitality, isTechOrTraining]);
-
-  // Set default selected service
-  useEffect(() => {
-    if (campaignServices.length > 0 && !selectedService) {
-      setSelectedService(campaignServices[0]);
-    }
-  }, [campaignServices, selectedService]);
-
   // Industry-specific experience themes
   const quickChips = useMemo(() => {
     if (isTechOrTraining) {
@@ -176,17 +132,17 @@ export const CustomerFeedbackPage = () => {
   }, [isHospitality, isDental, isTechOrTraining]);
 
   // Dynamic Natural AI Generator Function — branches by business type & integrates 7-day keywords
-  const generateFreshAiReview = (currentRating, service, chips, seed, keywords = []) => {
+  const generateFreshAiReview = (currentRating, chips = [], seed = 0, keywords = []) => {
     const activeKwList = (keywords && keywords.length > 0)
       ? keywords
       : (selectedKeywords.length > 0 ? selectedKeywords : (campaign?.trending_keywords || []));
     const trendingKw = activeKwList.length > 0
       ? activeKwList[seed % activeKwList.length]
       : null;
-    const defaultService = isDental
-      ? 'our dental treatment'
-      : (isTechOrTraining ? 'our training program' : 'our experience');
-    const sName = service || trendingKw || defaultService;
+    const defaultTopic = isDental
+      ? 'our dental care'
+      : (isTechOrTraining ? 'our training program' : (isHospitality ? 'our stay and dining' : 'our experience'));
+    const sName = trendingKw || defaultTopic;
     const bName = businessName;
     const themesStr = chips.length > 0 ? chips.join(', ') : '';
 
@@ -396,7 +352,6 @@ export const CustomerFeedbackPage = () => {
         rating: currentRating,
         businessName,
         customerName: customerName.trim() || undefined,
-        service: selectedService,
         autoSubmit: true,
         updatedAt: Date.now()
       };
@@ -408,7 +363,6 @@ export const CustomerFeedbackPage = () => {
           draft: cleanText,
           rating: currentRating,
           businessName,
-          service: selectedService,
           authorName: customerName.trim() || undefined
         }
       }, '*');
@@ -432,7 +386,7 @@ export const CustomerFeedbackPage = () => {
       const topKw = campaign.trending_keywords[0];
       setSelectedKeywords([topKw]);
       if (!hasGeneratedAi) {
-        const fresh = generateFreshAiReview(rating, selectedService, selectedChips, 0, [topKw]);
+        const fresh = generateFreshAiReview(rating, selectedChips, 0, [topKw]);
         setReviewText(fresh);
         syncDraftToExtension(fresh, rating);
       }
@@ -442,11 +396,11 @@ export const CustomerFeedbackPage = () => {
   // Initialize review text
   useEffect(() => {
     if (!hasGeneratedAi && reviewText === '') {
-      const initialText = generateFreshAiReview(rating, selectedService, selectedChips, 0, selectedKeywords);
+      const initialText = generateFreshAiReview(rating, selectedChips, 0, selectedKeywords);
       setReviewText(initialText);
       syncDraftToExtension(initialText, rating);
     }
-  }, [rating, selectedService, selectedChips, hasGeneratedAi, selectedKeywords]);
+  }, [rating, selectedChips, hasGeneratedAi, selectedKeywords]);
 
   // Handler: Generate fresh AI Review
   const handleGenerateAiReview = () => {
@@ -456,7 +410,7 @@ export const CustomerFeedbackPage = () => {
     setHasGeneratedAi(true);
 
     setTimeout(() => {
-      const freshText = generateFreshAiReview(rating, selectedService, selectedChips, nextSeed, selectedKeywords);
+      const freshText = generateFreshAiReview(rating, selectedChips, nextSeed, selectedKeywords);
       setReviewText(freshText);
       syncDraftToExtension(freshText, rating);
       setIsGeneratingAi(false);
@@ -471,7 +425,7 @@ export const CustomerFeedbackPage = () => {
 
     const nextSeed = aiVariationSeed + 1;
     setAiVariationSeed(nextSeed);
-    const updated = generateFreshAiReview(rating, selectedService, selectedChips, nextSeed, newKws);
+    const updated = generateFreshAiReview(rating, selectedChips, nextSeed, newKws);
     setReviewText(updated);
     syncDraftToExtension(updated, rating);
   };
@@ -484,7 +438,7 @@ export const CustomerFeedbackPage = () => {
 
     const nextSeed = aiVariationSeed + 1;
     setAiVariationSeed(nextSeed);
-    const updated = generateFreshAiReview(rating, selectedService, newChips, nextSeed, selectedKeywords);
+    const updated = generateFreshAiReview(rating, newChips, nextSeed, selectedKeywords);
     setReviewText(updated);
     syncDraftToExtension(updated, rating);
   };
@@ -531,7 +485,7 @@ export const CustomerFeedbackPage = () => {
     setRating(star);
     const nextSeed = aiVariationSeed + 1;
     setAiVariationSeed(nextSeed);
-    const freshText = generateFreshAiReview(star, selectedService, selectedChips, nextSeed);
+    const freshText = generateFreshAiReview(star, selectedChips, nextSeed);
     setReviewText(freshText);
     syncDraftToExtension(freshText, star);
   };
@@ -563,7 +517,6 @@ export const CustomerFeedbackPage = () => {
     // 1. Record click in campaign analytics
     api.trackCampaignEvent(campaign?.id || slug || 'default', 'REVIEW_DESTINATION_CLICKED', {
       rating: currentRating,
-      service: selectedService,
       destination: 'google_reviews',
       targetUrl: finalUrl,
       businessId: campaign?.business_id
@@ -604,7 +557,6 @@ export const CustomerFeedbackPage = () => {
     if (campaign?.id || slug) {
       api.trackCampaignEvent(campaign?.id || slug || 'default', 'REVIEW_DESTINATION_CLICKED', {
         rating,
-        service: selectedService,
         destination: rating >= 4 ? 'google_reviews' : 'private_feedback',
         targetUrl: rating >= 4 ? targetUrl : null,
         businessId: campaign?.business_id
@@ -620,7 +572,6 @@ export const CustomerFeedbackPage = () => {
           rating,
           reviewText: activeText,
           selectedDraft: activeText,
-          serviceExperienced: selectedService,
           themesSelected: selectedChips,
           destination: 'google'
         });
@@ -635,7 +586,6 @@ export const CustomerFeedbackPage = () => {
           customerName: customerName.trim() || 'Valued Guest',
           rating,
           feedbackText: activeText,
-          serviceExperienced: selectedService,
           themesSelected: selectedChips,
           proceededToGoogle: false
         });
@@ -805,39 +755,7 @@ export const CustomerFeedbackPage = () => {
               )}
             </div>
 
-            {/* Service Availed Selector */}
-            {campaignServices.length > 0 && (
-              <div className="space-y-2">
-                <label className="text-xs sm:text-sm font-bold text-slate-900 block">
-                  Service Availed:
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {campaignServices.map((svc) => {
-                    const isSelected = selectedService === svc;
-                    return (
-                      <button
-                        key={svc}
-                        type="button"
-                        onClick={() => {
-                          setSelectedService(svc);
-                          const nextSeed = aiVariationSeed + 1;
-                          setAiVariationSeed(nextSeed);
-                          const fresh = generateFreshAiReview(rating, svc, selectedChips, nextSeed);
-                          setReviewText(fresh);
-                          syncDraftToExtension(fresh, rating);
-                        }}
-                        className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${isSelected
-                            ? 'bg-blue-50 text-blue-700 border border-blue-300 ring-1 ring-blue-500/20'
-                            : 'bg-blue-50/40 hover:bg-blue-50 text-slate-600 border border-slate-200'
-                          }`}
-                      >
-                        {svc}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+
 
             {/* What stood out? Experience Themes */}
             <div className="space-y-2">
