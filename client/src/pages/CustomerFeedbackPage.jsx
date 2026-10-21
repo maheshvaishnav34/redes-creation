@@ -13,7 +13,8 @@ import {
   MessageSquare,
   Building2,
   User,
-  HeartHandshake
+  HeartHandshake,
+  Flame
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { validateGoogleReviewUrl } from '../utils/googleUrlValidator.js';
@@ -274,6 +275,15 @@ export const CustomerFeedbackPage = () => {
         : (isDental ? dentalHighBodiesWithoutThemes : hospHighBodiesWithoutThemes);
 
       // ── Closers ──
+      const techHighClosers = [
+        `5 stars well deserved!`,
+        `Highly recommended for anyone looking to upskill and build a great tech career!`,
+        `Grateful for the entire team and looking forward to applying these skills.`,
+        `Keep up the fantastic work! A solid 10/10 training program.`,
+        `Gladly giving 5 stars for their exceptional mentorship and support.`,
+        `Truly value the learning experience and career guidance provided!`
+      ];
+
       const dentalHighClosers = [
         `5 stars — well deserved!`,
         `Highly recommended to anyone looking for quality, painless dental care!`,
@@ -292,29 +302,47 @@ export const CustomerFeedbackPage = () => {
         `Looking forward to visiting again soon!`
       ];
 
-      const highClosers = isDental ? dentalHighClosers : hospHighClosers;
+      const highClosers = isTechOrTraining
+        ? techHighClosers
+        : (isDental ? dentalHighClosers : hospHighClosers);
+
+      const highBodies = chips.length > 0 ? highBodiesWithThemes : highBodiesWithoutThemes;
+      const opIdx = seed % highOpeners.length;
+      const bdIdx = seed % highBodies.length;
+      const clIdx = seed % highClosers.length;
 
       const kwPhrase = activeKwList && activeKwList.length > 0
         ? `Their specialized focus on ${activeKwList.slice(0, 2).join(' & ')} was truly outstanding.`
         : '';
-      const baseBody = chips.length > 0 ? highBodiesWithThemes[bdIdx] : highBodiesWithoutThemes[bdIdx];
+      const baseBody = highBodies[bdIdx];
       const combinedBody = kwPhrase ? `${kwPhrase} ${baseBody}` : baseBody;
 
       return `${highOpeners[opIdx]} ${combinedBody} ${highClosers[clIdx]}`;
     } else {
-      const lowOpeners = isDental
-        ? [
-          `Sharing feedback regarding our recent dental experience at ${bName}.`,
-          `Providing direct feedback for the management at ${bName}.`,
-          `Wanted to highlight a few areas for improvement with ${sName} at ${bName}.`,
-          `Writing to share our experience directly with the clinic management.`
-        ]
-        : [
-          `Sharing constructive feedback regarding our recent experience with ${sName} at ${bName}.`,
-          `Providing direct feedback for management regarding our visit.`,
-          `Wanted to highlight a few areas for improvement concerning ${sName} at ${bName}.`,
-          `Writing to share our experience directly with the management.`
-        ];
+      const techLowOpeners = [
+        `Sharing constructive feedback regarding our training experience with ${sName} at ${bName}.`,
+        `Providing direct feedback for the institute management regarding our course.`,
+        `Wanted to highlight a few areas for improvement concerning ${sName} at ${bName}.`,
+        `Writing to share our experience directly with the academy management.`
+      ];
+
+      const dentalLowOpeners = [
+        `Sharing feedback regarding our recent dental experience at ${bName}.`,
+        `Providing direct feedback for the management at ${bName}.`,
+        `Wanted to highlight a few areas for improvement with ${sName} at ${bName}.`,
+        `Writing to share our experience directly with the clinic management.`
+      ];
+
+      const hospLowOpeners = [
+        `Sharing constructive feedback regarding our recent experience with ${sName} at ${bName}.`,
+        `Providing direct feedback for management regarding our visit.`,
+        `Wanted to highlight a few areas for improvement concerning ${sName} at ${bName}.`,
+        `Writing to share our experience directly with the management.`
+      ];
+
+      const lowOpeners = isTechOrTraining
+        ? techLowOpeners
+        : (isDental ? dentalLowOpeners : hospLowOpeners);
 
       const lowBodies = chips.length > 0
         ? [
@@ -328,15 +356,21 @@ export const CustomerFeedbackPage = () => {
             `There were some coordination difficulties during our appointment.`,
             `The experience did not fully meet our expectations for a dental visit.`
           ]
-          : [
-            `The service speed and coordination were below what was expected.`,
-            `There were service delays and communication difficulties during our visit.`,
-            `The experience did not meet standard expectations.`
-          ];
+          : (isTechOrTraining
+            ? [
+              `The pace and topic depth could be improved significantly.`,
+              `There were some scheduling and coordination difficulties during the sessions.`,
+              `The training did not fully meet standard industry expectations.`
+            ]
+            : [
+              `The service speed and coordination were below what was expected.`,
+              `There were service delays and communication difficulties during our visit.`,
+              `The experience did not meet standard expectations.`
+            ]);
 
       const lowClosers = [
         `Hoping management takes this feedback positively to address these gaps.`,
-        `Appreciate if the team looks into this to improve patient satisfaction.`,
+        `Appreciate if the team looks into this to improve satisfaction.`,
         `Sharing this directly so necessary adjustments can be made.`
       ];
 
