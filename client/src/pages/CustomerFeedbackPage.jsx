@@ -733,18 +733,7 @@ export const CustomerFeedbackPage = () => {
               <span>Verified Google Profile</span>
             </div>
 
-            {displayWebsite && (
-              <a
-                href={businessWebsite}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#1a73e8] border border-blue-200/80 text-[11px] font-semibold hover:bg-blue-100 transition"
-              >
-                <Globe className="w-3 h-3 text-[#1a73e8]" />
-                <span>{displayWebsite}</span>
-                <ExternalLink className="w-2.5 h-2.5 text-[#1a73e8]" />
-              </a>
-            )}
+
 
             {businessCity && (
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-slate-600 border border-slate-200 text-[11px] font-semibold">
