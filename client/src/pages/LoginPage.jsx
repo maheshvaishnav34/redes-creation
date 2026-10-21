@@ -55,39 +55,6 @@ export default function LoginPage() {
 
         {/* Clean Login Card */}
         <div className="bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow">
-          {/* Demo Quick-Fill Credentials */}
-          <div className="mb-5 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-            <span className="font-bold text-slate-600 block mb-1.5 uppercase text-[10px] tracking-wider">
-              Quick 1-Click Demo Login:
-            </span>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('owner@redescreation.com');
-                  setPassword('Admin@123');
-                  setError(null);
-                }}
-                className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#034bc0] border border-blue-200 font-bold text-[11px] transition-colors cursor-pointer flex items-center gap-1"
-              >
-                <span>👑 Owner</span>
-                <span className="text-slate-400 font-normal">(owner@...)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('admin@redescreation.com');
-                  setPassword('Admin@123');
-                  setError(null);
-                }}
-                className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[11px] transition-colors cursor-pointer flex items-center gap-1"
-              >
-                <span>🛡️ Admin</span>
-                <span className="text-slate-400 font-normal">(admin@...)</span>
-              </button>
-            </div>
-            <span className="text-[10px] text-slate-400 mt-1.5 block">Default password: Admin@123</span>
-          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
